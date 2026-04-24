@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { chatWithCharacter, generateImage } from "@/lib/minimax";
 import { getUserProfileString, extractUserProfile } from "@/lib/memory";
+import { addAffinity, getAffinity, getAffinityPromptHint } from "@/lib/affinity";
+import { getTodayEvent, checkBirthdayEvent, getMemoryRecall } from "@/lib/events";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -38,10 +40,30 @@ export async function POST(req: NextRequest) {
 
   const userProfile = await getUserProfileString(user.id);
 
+  const affinityData = await getAffinity(user.id, character.id);
+  const affinityHint = getAffinityPromptHint(affinityData.level);
+
+  let contextHints = `\n\n【关系状态】好感等级: ${affinityData.levelInfo.name}（${affinityData.score}分）。${affinityHint}`;
+
+  const todayEvent = getTodayEvent();
+  if (todayEvent) {
+    contextHints += `\n【特殊日期】${todayEvent.prompt}`;
+  }
+
+  const birthdayEvent = await checkBirthdayEvent(user.id);
+  if (birthdayEvent) {
+    contextHints += `\n【特殊日期】${birthdayEvent.prompt}`;
+  }
+
+  const memoryRecall = await getMemoryRecall(user.id);
+  if (memoryRecall) {
+    contextHints += `\n【记忆回溯】${memoryRecall}`;
+  }
+
   const systemPrompt = character.systemPrompt.replace(
     "{user_profile}",
     userProfile
-  );
+  ) + contextHints;
 
   const chatMessages = history.map((m) => ({
     role: m.role as "user" | "assistant",
@@ -71,6 +93,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  const affinityResult = await addAffinity(user.id, character.id, 2, "chat");
+
   extractUserProfile(user.id, message, replyText).catch(() => {});
 
   return NextResponse.json({
@@ -80,6 +104,12 @@ export async function POST(req: NextRequest) {
       content: replyText,
       imageUrl,
       createdAt: assistantMessage.createdAt,
+    },
+    affinity: {
+      score: affinityResult.score,
+      level: affinityResult.level,
+      levelUp: affinityResult.levelUp,
+      levelInfo: affinityResult.levelInfo,
     },
   });
 }

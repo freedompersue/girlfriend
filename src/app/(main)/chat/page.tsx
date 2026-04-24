@@ -13,6 +13,11 @@ import {
   LogOut,
   ArrowLeftRight,
   ChevronDown,
+  Heart,
+  CalendarCheck,
+  Bell,
+  X,
+  Sparkles,
 } from "lucide-react";
 
 interface Message {
@@ -22,6 +27,24 @@ interface Message {
   imageUrl?: string | null;
   audioUrl?: string | null;
   createdAt: string;
+}
+
+interface AffinityData {
+  score: number;
+  level: number;
+  levelInfo: { name: string; nameEn: string; nameJa: string; icon: string };
+  progress: { current: number; needed: number; percent: number };
+  nextLevel: { name: string; nameEn: string; nameJa: string; minScore: number } | null;
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+  character?: { name: string } | null;
 }
 
 export default function ChatPage() {
@@ -38,6 +61,17 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const [affinity, setAffinity] = useState<AffinityData | null>(null);
+  const [showAffinityPanel, setShowAffinityPanel] = useState(false);
+  const [checkedInToday, setCheckedInToday] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifyPanel, setShowNotifyPanel] = useState(false);
+  const [levelUpToast, setLevelUpToast] = useState<string | null>(null);
+  const [checkInToast, setCheckInToast] = useState<string | null>(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({
@@ -63,6 +97,27 @@ export default function ChatPage() {
           setTimeout(() => scrollToBottom(false), 100);
         })
         .catch(console.error);
+
+      fetch("/api/affinity")
+        .then((r) => r.json())
+        .then((d) => { if (d.score !== undefined) setAffinity(d); })
+        .catch(() => {});
+
+      fetch("/api/checkin")
+        .then((r) => r.json())
+        .then((d) => {
+          setCheckedInToday(d.checkedInToday);
+          setStreak(d.currentStreak);
+        })
+        .catch(() => {});
+
+      fetch("/api/notifications")
+        .then((r) => r.json())
+        .then((d) => {
+          setNotifications(d.notifications || []);
+          setUnreadCount(d.unreadCount || 0);
+        })
+        .catch(() => {});
     }
   }, [user, authLoading, router, scrollToBottom]);
 
@@ -106,6 +161,14 @@ export default function ChatPage() {
       if (res.ok && data.message) {
         setMessages((prev) => [...prev, data.message]);
         setTimeout(() => scrollToBottom(), 50);
+
+        if (data.affinity) {
+          setAffinity((prev) => prev ? { ...prev, score: data.affinity.score, level: data.affinity.level, levelInfo: data.affinity.levelInfo } : prev);
+          if (data.affinity.levelUp) {
+            setLevelUpToast(data.affinity.levelInfo.name);
+            setTimeout(() => setLevelUpToast(null), 4000);
+          }
+        }
       }
     } catch (error) {
       console.error("Send failed:", error);
@@ -147,6 +210,47 @@ export default function ChatPage() {
     }
   };
 
+  const handleCheckIn = async () => {
+    if (checkedInToday || checkInLoading) return;
+    setCheckInLoading(true);
+    try {
+      const res = await fetch("/api/checkin", { method: "POST" });
+      const data = await res.json();
+      if (!data.alreadyCheckedIn) {
+        setCheckedInToday(true);
+        setStreak(data.streak);
+        setCheckInToast(`+${data.reward}`);
+        setTimeout(() => setCheckInToast(null), 3000);
+        if (data.levelUp) {
+          setTimeout(() => {
+            setLevelUpToast(data.levelInfo.name);
+            setTimeout(() => setLevelUpToast(null), 4000);
+          }, 1500);
+        }
+        fetch("/api/affinity")
+          .then((r) => r.json())
+          .then((d) => { if (d.score !== undefined) setAffinity(d); })
+          .catch(() => {});
+      } else {
+        setCheckedInToday(true);
+      }
+    } catch (e) {
+      console.error("Check-in failed:", e);
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
+  const handleReadAllNotify = async () => {
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readAll: true }),
+    });
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -166,6 +270,33 @@ export default function ChatPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen max-h-screen">
+      {/* Level Up Toast */}
+      {levelUpToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-gradient-to-r from-primary to-accent-pink px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-white">
+            <Sparkles size={20} />
+            <div>
+              <p className="font-bold text-sm">{t("affinity.levelup")}</p>
+              <p className="text-xs opacity-90">
+                {t("affinity.levelup_msg", { name: charName, level: levelUpToast })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Check-in Toast */}
+      {checkInToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-card-bg border border-primary/50 px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+            <Heart size={16} className="text-accent-pink" />
+            <span className="text-sm font-medium text-foreground">
+              {t("checkin.success")} {t("checkin.reward", { points: checkInToast })}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="shrink-0 bg-card-bg/80 backdrop-blur-xl border-b border-card-border px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -174,13 +305,55 @@ export default function ChatPage() {
               {charName[0]}
             </div>
             <div>
-              <h2 className="font-semibold text-sm">{charName}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-sm">{charName}</h2>
+                {affinity && (
+                  <button
+                    onClick={() => setShowAffinityPanel(!showAffinityPanel)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <span>{affinity.levelInfo.icon}</span>
+                    <span>Lv.{affinity.level}</span>
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-muted">
                 {user?.selectedCharacter?.subtitle || t("chat.online")}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Check-in Button */}
+            <button
+              onClick={handleCheckIn}
+              disabled={checkedInToday || checkInLoading}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all ${
+                checkedInToday
+                  ? "bg-surface text-muted"
+                  : "bg-gradient-to-r from-primary to-accent-pink text-white hover:opacity-90"
+              }`}
+              title={checkedInToday ? t("checkin.done") : t("checkin.btn")}
+            >
+              <CalendarCheck size={14} />
+              <span className="hidden sm:inline">
+                {checkedInToday ? (streak > 0 ? `${streak}天` : t("checkin.done")) : t("checkin.btn")}
+              </span>
+            </button>
+
+            {/* Notifications */}
+            <button
+              onClick={() => setShowNotifyPanel(!showNotifyPanel)}
+              className="relative p-2 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface"
+              title={t("notify.title")}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent-rose text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
             <ThemeSwitcher
               mode={mode}
               setMode={setMode}
@@ -202,6 +375,99 @@ export default function ChatPage() {
             </button>
           </div>
         </div>
+
+        {/* Affinity Panel */}
+        {showAffinityPanel && affinity && (
+          <div className="max-w-2xl mx-auto mt-3 p-4 bg-surface rounded-xl border border-card-border animate-fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Heart size={14} className="text-accent-pink" />
+                {t("affinity.title")}
+              </h3>
+              <button onClick={() => setShowAffinityPanel(false)} className="text-muted hover:text-foreground">
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">{affinity.levelInfo.icon}</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Lv.{affinity.level} {affinity.levelInfo.name}
+                </p>
+                <p className="text-xs text-muted">{affinity.score} pts</p>
+              </div>
+            </div>
+            <div className="w-full bg-card-bg rounded-full h-2.5 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-accent-pink rounded-full transition-all duration-500"
+                style={{ width: `${affinity.progress.percent}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5 text-[10px] text-muted">
+              <span>{t("affinity.progress", { current: String(affinity.progress.current), needed: String(affinity.progress.needed) })}</span>
+              {affinity.nextLevel ? (
+                <span>{t("affinity.next", { name: affinity.nextLevel.name })}</span>
+              ) : (
+                <span>{t("affinity.max")}</span>
+              )}
+            </div>
+            {streak > 0 && (
+              <p className="text-xs text-muted mt-2">
+                {t("checkin.streak", { days: String(streak) })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Notification Panel */}
+        {showNotifyPanel && (
+          <div className="max-w-2xl mx-auto mt-3 p-4 bg-surface rounded-xl border border-card-border animate-fade-in max-h-72 overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Bell size={14} className="text-primary" />
+                {t("notify.title")}
+              </h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleReadAllNotify}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {t("notify.read_all")}
+                  </button>
+                )}
+                <button onClick={() => setShowNotifyPanel(false)} className="text-muted hover:text-foreground">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+            {notifications.length === 0 ? (
+              <p className="text-sm text-muted text-center py-4">{t("notify.empty")}</p>
+            ) : (
+              <div className="space-y-2">
+                {notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      n.read
+                        ? "bg-card-bg/50 border-card-border/50"
+                        : "bg-card-bg border-primary/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {!n.read && <span className="w-2 h-2 bg-primary rounded-full shrink-0" />}
+                      <p className="text-xs font-medium flex-1">{n.title}</p>
+                      <span className="text-[10px] text-muted">
+                        {new Date(n.createdAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted/80 line-clamp-2">{n.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages */}

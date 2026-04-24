@@ -21,6 +21,8 @@ model User {
   messages      Message[]
   profileItems  UserProfile[]
   affinity      Affinity[]
+  checkIns      CheckIn[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -41,6 +43,7 @@ model Character {
   users         User[]
   messages      Message[]
   affinity      Affinity[]
+  notifications Notification[]
 
   @@map("characters")
 }
@@ -81,6 +84,7 @@ model UserProfile {
 model Affinity {
   id        String   @id @default(cuid())
   score     Int      @default(50)
+  level     Int      @default(1)
   updatedAt DateTime @updatedAt
 
   userId      String
@@ -91,4 +95,37 @@ model Affinity {
 
   @@unique([userId, characterId])
   @@map("affinities")
+}
+
+model CheckIn {
+  id        String   @id @default(cuid())
+  date      String
+  streak    Int      @default(1)
+  reward    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, createdAt])
+  @@map("check_ins")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  content   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  characterId String?
+  character   Character? @relation(fields: [characterId], references: [id])
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
 }

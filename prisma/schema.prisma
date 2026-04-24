@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  selectedCharacterId String?
+  selectedCharacter   Character? @relation(fields: [selectedCharacterId], references: [id])
+
+  messages      Message[]
+  profileItems  UserProfile[]
+  affinity      Affinity[]
+
+  @@map("users")
+}
+
+model Character {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  subtitle      String
+  tags          String[]
+  description   String
+  avatarUrl     String
+  systemPrompt  String   @db.Text
+  appearance    String   @db.Text
+  baseImageUrl  String?
+  voiceId       String?
+  createdAt     DateTime @default(now())
+
+  users         User[]
+  messages      Message[]
+  affinity      Affinity[]
+
+  @@map("characters")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  role        String
+  content     String   @db.Text
+  imageUrl    String?
+  audioUrl    String?
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([userId, characterId, createdAt])
+  @@map("messages")
+}
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  key       String
+  value     String
+  source    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("user_profiles")
+}
+
+model Affinity {
+  id        String   @id @default(cuid())
+  score     Int      @default(50)
+  updatedAt DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, characterId])
+  @@map("affinities")
+}

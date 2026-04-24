@@ -1,26 +1,100 @@
 @import "tailwindcss";
 
+/* ===== Light Theme (default) ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAF9F7;
+  --foreground: #1A1A2E;
+  --primary: #7C5CBF;
+  --primary-light: #9B7ED8;
+  --primary-dark: #5E3FA3;
+  --card-bg: #FFFFFF;
+  --card-border: #E5E1EA;
+  --input-bg: #F3F1F6;
+  --surface: #EDEAF2;
+  --muted: #7C7A88;
+  --accent-pink: #D87FAE;
+  --accent-rose: #E0566A;
+  --bubble-self: #7C5CBF;
+  --bubble-other: #F3F1F6;
+}
+
+/* ===== Dark Theme ===== */
+.dark {
+  --background: #0f0a1a;
+  --foreground: #f0e6ff;
+  --primary: #a855f7;
+  --primary-light: #c084fc;
+  --primary-dark: #7c3aed;
+  --card-bg: #1a1128;
+  --card-border: #2d1f4e;
+  --input-bg: #1e1433;
+  --surface: #150e24;
+  --muted: #9ca3af;
+  --accent-pink: #f472b6;
+  --accent-rose: #fb7185;
+  --bubble-self: #7c3aed;
+  --bubble-other: #1e1433;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-input-bg: var(--input-bg);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-accent-pink: var(--accent-pink);
+  --color-accent-rose: var(--accent-rose);
+  --color-bubble-self: var(--bubble-self);
+  --color-bubble-other: var(--bubble-other);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), "PingFang SC", "Hiragino Sans GB", Arial, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--card-border) transparent;
+}
+
+::selection {
+  background: var(--primary-light);
+  color: white;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
 }

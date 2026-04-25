@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { prisma } from "./prisma";
+import { auth } from "./better-auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
@@ -26,24 +27,44 @@ export function verifyToken(token: string) {
   }
 }
 
-export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  if (!token) return null;
-
-  const decoded = verifyToken(token);
-  if (!decoded) return null;
-
-  const user = await prisma.user.findUnique({
-    where: { id: decoded.userId },
+async function getUserById(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
     select: {
       id: true,
       email: true,
+      username: true,
       name: true,
+      image: true,
       selectedCharacterId: true,
       selectedCharacter: true,
     },
   });
+}
 
-  return user;
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+
+  const jwtToken = cookieStore.get("token")?.value;
+  if (jwtToken) {
+    const decoded = verifyToken(jwtToken);
+    if (decoded) {
+      const user = await getUserById(decoded.userId);
+      if (user) return user;
+    }
+  }
+
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({
+      headers: headersList,
+    });
+    if (session?.user?.id) {
+      return getUserById(session.user.id);
+    }
+  } catch {
+    // BetterAuth session not found
+  }
+
+  return null;
 }

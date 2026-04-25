@@ -20,7 +20,10 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
+  if (!user.selectedCharacterId) {
+    return NextResponse.json({ checkedInToday: false, currentStreak: 0, totalDays: 0 });
+  }
 
-  const status = await getCheckInStatus(user.id);
+  const status = await getCheckInStatus(user.id, user.selectedCharacterId);
   return NextResponse.json(status);
 }

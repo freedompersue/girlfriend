@@ -4,39 +4,53 @@ import { hashPassword, signToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json();
+    const { email, username, password, name } = await req.json();
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "邮箱和密码不能为空" },
-        { status: 400 }
-      );
+    if (!username && !email) {
+      return NextResponse.json({ error: "请输入用户名或邮箱" }, { status: 400 });
     }
-
+    if (!password) {
+      return NextResponse.json({ error: "密码不能为空" }, { status: 400 });
+    }
     if (password.length < 6) {
-      return NextResponse.json(
-        { error: "密码至少需要6个字符" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "密码至少需要6个字符" }, { status: 400 });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json(
-        { error: "该邮箱已被注册" },
-        { status: 409 }
-      );
+    if (username) {
+      if (username.length < 2 || username.length > 20) {
+        return NextResponse.json({ error: "用户名长度 2-20 个字符" }, { status: 400 });
+      }
+      if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(username)) {
+        return NextResponse.json({ error: "用户名只能包含字母、数字、下划线或中文" }, { status: 400 });
+      }
+      const existingUser = await prisma.user.findUnique({ where: { username } });
+      if (existingUser) {
+        return NextResponse.json({ error: "该用户名已被注册" }, { status: 409 });
+      }
+    }
+
+    if (email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        return NextResponse.json({ error: "该邮箱已被注册" }, { status: 409 });
+      }
     }
 
     const passwordHash = await hashPassword(password);
+    const displayName = name || username || (email ? email.split("@")[0] : "用户");
     const user = await prisma.user.create({
-      data: { email, passwordHash, name: name || email.split("@")[0] },
+      data: {
+        email: email || null,
+        username: username || null,
+        passwordHash,
+        name: displayName,
+      },
     });
 
     const token = signToken(user.id);
 
     const response = NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, username: user.username, name: user.name },
     });
 
     response.cookies.set("token", token, {

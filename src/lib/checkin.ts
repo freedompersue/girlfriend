@@ -22,7 +22,7 @@ export async function doCheckIn(userId: string, characterId: string) {
   const today = getTodayStr();
 
   const existing = await prisma.checkIn.findUnique({
-    where: { userId_date: { userId, date: today } },
+    where: { userId_characterId_date: { userId, characterId, date: today } },
   });
 
   if (existing) {
@@ -30,7 +30,7 @@ export async function doCheckIn(userId: string, characterId: string) {
   }
 
   const yesterday = await prisma.checkIn.findUnique({
-    where: { userId_date: { userId, date: getYesterdayStr() } },
+    where: { userId_characterId_date: { userId, characterId, date: getYesterdayStr() } },
   });
 
   const streak = yesterday ? yesterday.streak + 1 : 1;
@@ -39,7 +39,7 @@ export async function doCheckIn(userId: string, characterId: string) {
   const totalReward = baseReward + streakBonus;
 
   await prisma.checkIn.create({
-    data: { userId, date: today, streak, reward: totalReward },
+    data: { userId, characterId, date: today, streak, reward: totalReward },
   });
 
   const result = await addAffinity(userId, characterId, totalReward, "daily_checkin");
@@ -54,18 +54,18 @@ export async function doCheckIn(userId: string, characterId: string) {
   };
 }
 
-export async function getCheckInStatus(userId: string) {
+export async function getCheckInStatus(userId: string, characterId: string) {
   const today = getTodayStr();
   const todayRecord = await prisma.checkIn.findUnique({
-    where: { userId_date: { userId, date: today } },
+    where: { userId_characterId_date: { userId, characterId, date: today } },
   });
 
   const latest = await prisma.checkIn.findFirst({
-    where: { userId },
+    where: { userId, characterId },
     orderBy: { createdAt: "desc" },
   });
 
-  const totalDays = await prisma.checkIn.count({ where: { userId } });
+  const totalDays = await prisma.checkIn.count({ where: { userId, characterId } });
 
   return {
     checkedInToday: !!todayRecord,

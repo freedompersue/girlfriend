@@ -7,9 +7,10 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLocale } from "@/hooks/useLocale";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { SocialLoginButtons } from "@/components/SocialLoginButtons";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ account, password }),
       });
 
       const data = await res.json();
@@ -76,14 +77,14 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm text-muted mb-1.5">
-                  {t("auth.email")}
+                  {t("auth.account")}
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={account}
+                  onChange={(e) => setAccount(e.target.value)}
                   className="w-full px-4 py-3 bg-input-bg border border-card-border rounded-xl text-foreground placeholder-muted/50 focus:outline-none focus:border-primary transition-colors"
-                  placeholder={t("auth.email_placeholder")}
+                  placeholder={t("auth.account_placeholder")}
                   required
                 />
               </div>
@@ -114,6 +115,8 @@ export default function LoginPage() {
                 {loading ? t("auth.logging_in") : t("auth.login")}
               </button>
             </form>
+
+            <SocialLoginButtons t={t} callbackURL="/select" />
 
             <p className="text-center text-muted text-sm mt-6">
               {t("auth.no_account")}{" "}

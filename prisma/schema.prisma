@@ -31,6 +31,9 @@ model User {
   externalLinks ExternalLink[]
   sessions      Session[]
   accounts      Account[]
+  subscription  Subscription?
+  creditBalance CreditBalance?
+  transactions  Transaction[]
 
   @@map("users")
 }
@@ -244,4 +247,52 @@ model ExternalLink {
   @@unique([platform, externalId])
   @@index([linkCode])
   @@map("external_links")
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  plan                 String    @default("free")
+  status               String    @default("active")
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model CreditBalance {
+  id        String   @id @default(cuid())
+  balance   Int      @default(0)
+  totalUsed Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credit_balances")
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  type            String
+  amount          Int
+  credits         Int      @default(0)
+  description     String
+  stripePaymentId String?
+  status          String   @default("completed")
+  createdAt       DateTime @default(now())
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("transactions")
 }

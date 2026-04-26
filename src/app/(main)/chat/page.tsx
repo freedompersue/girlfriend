@@ -24,6 +24,7 @@ import {
   Trophy,
   Play,
   Link2,
+  Crown,
 } from "lucide-react";
 
 interface Message {
@@ -110,6 +111,10 @@ export default function ChatPage() {
   const [goodnightLoading, setGoodnightLoading] = useState(false);
   const [goodnightResult, setGoodnightResult] = useState<{ text: string; audioUrl: string | null } | null>(null);
 
+  const [billingPlan, setBillingPlan] = useState<string>("free");
+  const [msgRemaining, setMsgRemaining] = useState<number>(-1);
+  const [msgLimitToast, setMsgLimitToast] = useState(false);
+
   const togglePanel = (panel: PanelType) => {
     if (activePanel === panel) {
       setActivePanel(null);
@@ -188,6 +193,14 @@ export default function ChatPage() {
           setUnreadCount(d.unreadCount || 0);
         })
         .catch(() => {});
+
+      fetch("/api/billing/status")
+        .then((r) => r.json())
+        .then((d) => {
+          setBillingPlan(d.plan || "free");
+          setMsgRemaining(d.messagesRemaining ?? -1);
+        })
+        .catch(() => {});
     }
   }, [user, authLoading, router, scrollToBottom]);
 
@@ -228,9 +241,21 @@ export default function ChatPage() {
 
       const data = await res.json();
 
+      if (res.status === 403 && data.code === "MESSAGE_LIMIT") {
+        setMsgRemaining(0);
+        setMsgLimitToast(true);
+        setTimeout(() => setMsgLimitToast(false), 5000);
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        return;
+      }
+
       if (res.ok && data.message) {
         setMessages((prev) => [...prev, data.message]);
         setTimeout(() => scrollToBottom(), 50);
+
+        if (msgRemaining > 0) {
+          setMsgRemaining((prev) => (prev > 0 ? prev - 1 : prev));
+        }
 
         if (data.affinity) {
           setAffinity((prev) => prev ? {
@@ -490,6 +515,20 @@ export default function ChatPage() {
               setMode={setMode}
               labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
             />
+            <button
+              onClick={() => router.push("/pricing")}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-all ${
+                billingPlan !== "free"
+                  ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                  : "text-muted hover:text-foreground hover:bg-surface"
+              }`}
+              title={t("pricing.title")}
+            >
+              <Crown size={14} />
+              {billingPlan !== "free" && (
+                <span className="hidden sm:inline font-medium uppercase">{billingPlan}</span>
+              )}
+            </button>
             <button
               onClick={() => router.push("/integrations")}
               className="p-2 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface"
@@ -814,8 +853,36 @@ export default function ChatPage() {
         </button>
       )}
 
+      {/* Message limit toast */}
+      {msgLimitToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-white">
+            <Crown size={20} />
+            <div>
+              <p className="font-bold text-sm">{t("pricing.msg_limit")}</p>
+              <button onClick={() => { setMsgLimitToast(false); router.push("/pricing"); }} className="text-xs underline opacity-90 hover:opacity-100">
+                {t("pricing.upgrade_hint")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== Bottom Toolbar + Input ===== */}
       <div className="shrink-0 bg-card-bg/80 backdrop-blur-xl border-t border-card-border">
+        {/* Message counter for free users */}
+        {billingPlan === "free" && msgRemaining >= 0 && (
+          <div className="max-w-2xl mx-auto px-4 pt-2">
+            <div className={`flex items-center justify-between text-xs ${msgRemaining <= 5 ? "text-amber-500" : "text-muted"}`}>
+              <span>{t("pricing.msg_remaining", { n: String(msgRemaining) })}</span>
+              {msgRemaining <= 10 && (
+                <button onClick={() => router.push("/pricing")} className="text-primary hover:underline">
+                  {t("pricing.upgrade")} →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {/* Feature buttons */}
         <div className="max-w-2xl mx-auto flex items-center gap-1 px-4 pt-2">
           {([

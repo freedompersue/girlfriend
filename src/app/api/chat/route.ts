@@ -7,6 +7,7 @@ import { addAffinity, getAffinity, getAffinityPromptHint } from "@/lib/affinity"
 import { getTodayEvent, checkBirthdayEvent, getMemoryRecall } from "@/lib/events";
 import { analyzeMood } from "@/lib/mood";
 import { checkMilestones, getMilestonePromptHint } from "@/lib/milestone";
+import { canSendMessage, canUseFeature, PLANS } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -21,6 +22,16 @@ export async function POST(req: NextRequest) {
   const { message, locale } = await req.json();
   if (!message?.trim()) {
     return NextResponse.json({ error: "消息不能为空" }, { status: 400 });
+  }
+
+  const msgCheck = await canSendMessage(user.id);
+  if (!msgCheck.allowed) {
+    return NextResponse.json({
+      error: "今日消息已用完，升级会员可解锁无限消息",
+      code: "MESSAGE_LIMIT",
+      remaining: 0,
+      plan: msgCheck.plan,
+    }, { status: 403 });
   }
 
   const character = user.selectedCharacter;
@@ -137,9 +148,12 @@ export async function POST(req: NextRequest) {
   const photoMatch = replyRaw.match(/\[SEND_PHOTO:\s*(.+?)\]/);
   if (photoMatch) {
     replyText = replyRaw.replace(/\[SEND_PHOTO:\s*.+?\]/, "").trim();
-    const sceneDesc = photoMatch[1];
-    const imagePrompt = `${character.appearance}，${sceneDesc}，真实摄影风格，高清，自然光线`;
-    imageUrl = await generateImage(imagePrompt);
+    const canPhoto = await canUseFeature(user.id, "hasPhotos");
+    if (canPhoto) {
+      const sceneDesc = photoMatch[1];
+      const imagePrompt = `${character.appearance}，${sceneDesc}，真实摄影风格，高清，自然光线`;
+      imageUrl = await generateImage(imagePrompt);
+    }
   }
 
   const assistantMessage = await prisma.message.create({

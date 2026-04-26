@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       ? await prisma.user.findUnique({ where: { email: account } })
       : await prisma.user.findUnique({ where: { username: account } });
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       return NextResponse.json({ error: "账号或密码错误" }, { status: 401 });
     }
 

@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { minimaxClient } from "./minimax";
+import { llmClient } from "./minimax";
 
 const MOOD_LABELS: Record<string, { zh: string; en: string; ja: string; color: string }> = {
   happy:    { zh: "开心", en: "Happy", ja: "嬉しい", color: "#22c55e" },
@@ -23,8 +23,8 @@ export async function analyzeMood(
   assistantReply: string
 ) {
   try {
-    const response = await minimaxClient.chat.completions.create({
-      model: "MiniMax-M2.5",
+    const response = await llmClient.chat.completions.create({
+      model: process.env.LLM_MODEL || "minimax/minimax-m1",
       messages: [
         {
           role: "system",

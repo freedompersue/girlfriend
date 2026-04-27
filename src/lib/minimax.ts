@@ -1,7 +1,20 @@
 import OpenAI from "openai";
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const LLM_MODEL = process.env.LLM_MODEL || "minimax/minimax-m1";
+
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || "";
 const MINIMAX_BASE_URL = process.env.MINIMAX_BASE_URL || "https://api.minimaxi.com/v1";
+
+export const llmClient = new OpenAI({
+  baseURL: OPENROUTER_BASE_URL,
+  apiKey: OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    "X-Title": "她在 AI Companion",
+  },
+});
 
 export const minimaxClient = new OpenAI({
   baseURL: MINIMAX_BASE_URL,
@@ -12,8 +25,8 @@ export async function chatWithCharacter(
   systemPrompt: string,
   messages: { role: "user" | "assistant"; content: string }[]
 ) {
-  const response = await minimaxClient.chat.completions.create({
-    model: "MiniMax-M2.5",
+  const response = await llmClient.chat.completions.create({
+    model: LLM_MODEL,
     messages: [{ role: "system", content: systemPrompt }, ...messages],
     max_tokens: 1024,
     temperature: 0.85,
@@ -24,6 +37,7 @@ export async function chatWithCharacter(
 }
 
 export async function generateImage(prompt: string): Promise<string | null> {
+  if (!MINIMAX_API_KEY) return null;
   try {
     const response = await fetch(`${MINIMAX_BASE_URL}/image_generation`, {
       method: "POST",
@@ -53,6 +67,7 @@ export async function generateTTS(
   text: string,
   voiceId: string = "female-shaonv"
 ): Promise<string | null> {
+  if (!MINIMAX_API_KEY) return null;
   try {
     const response = await fetch(`${MINIMAX_BASE_URL}/t2a_v2`, {
       method: "POST",

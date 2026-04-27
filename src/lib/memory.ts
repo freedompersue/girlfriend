@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { minimaxClient } from "./minimax";
+import { llmClient } from "./minimax";
 
 export async function extractUserProfile(
   userId: string,
@@ -7,8 +7,8 @@ export async function extractUserProfile(
   assistantReply: string
 ) {
   try {
-    const response = await minimaxClient.chat.completions.create({
-      model: "MiniMax-M2.5",
+    const response = await llmClient.chat.completions.create({
+      model: process.env.LLM_MODEL || "minimax/minimax-m1",
       messages: [
         {
           role: "system",

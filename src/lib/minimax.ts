@@ -28,12 +28,12 @@ export async function chatWithCharacter(
   const response = await llmClient.chat.completions.create({
     model: LLM_MODEL,
     messages: [{ role: "system", content: systemPrompt }, ...messages],
-    max_tokens: 1024,
+    max_tokens: 4096,
     temperature: 0.85,
   });
 
   const raw = response.choices[0]?.message?.content || "";
-  return raw.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
+  return raw.trim();
 }
 
 export async function generateImage(prompt: string): Promise<string | null> {

@@ -10,6 +10,7 @@ import { checkMilestones, getMilestonePromptHint } from "@/lib/milestone";
 import { canSendMessage, canUseFeature, PLANS } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
+  try {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -196,6 +197,10 @@ export async function POST(req: NextRequest) {
     },
     newMilestones: newMilestones || [],
   });
+  } catch (error) {
+    console.error("[chat route error]", error);
+    return NextResponse.json({ error: "服务暂时不可用，请稍后重试" }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {

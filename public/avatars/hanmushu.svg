@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a2b4a"/>
+      <stop offset="50%" stop-color="#6b4a6e"/>
+      <stop offset="100%" stop-color="#a47e6e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#f7e3c8" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#f7e3c8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a0e1c"/>
+      <stop offset="100%" stop-color="#3a232f"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5dcc1"/>
+      <stop offset="100%" stop-color="#e0bda0"/>
+    </linearGradient>
+    <linearGradient id="coat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#caa885"/>
+      <stop offset="100%" stop-color="#9c8062"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <rect width="400" height="400" fill="url(#glow)"/>
+  <!-- shoulders / coat -->
+  <path d="M40,400 C70,320 130,295 200,295 C270,295 330,320 360,400 Z" fill="url(#coat)"/>
+  <!-- neck -->
+  <rect x="180" y="240" width="40" height="60" fill="url(#skin)"/>
+  <!-- head -->
+  <ellipse cx="200" cy="195" rx="78" ry="92" fill="url(#skin)"/>
+  <!-- hair back -->
+  <path d="M118,200 C108,130 150,80 200,80 C250,80 292,130 282,200 C282,160 260,135 200,135 C140,135 118,160 118,200 Z" fill="url(#hair)"/>
+  <!-- hair side curls -->
+  <path d="M118,210 C115,250 130,275 165,278 C150,260 138,235 132,210 Z" fill="url(#hair)"/>
+  <path d="M282,210 C285,250 270,275 235,278 C250,260 262,235 268,210 Z" fill="url(#hair)"/>
+  <!-- glasses -->
+  <g stroke="#cdb27a" stroke-width="2.4" fill="none">
+    <circle cx="172" cy="200" r="20"/>
+    <circle cx="228" cy="200" r="20"/>
+    <line x1="192" y1="200" x2="208" y2="200"/>
+  </g>
+  <!-- eyes -->
+  <ellipse cx="172" cy="201" rx="4" ry="2.4" fill="#2a1a22"/>
+  <ellipse cx="228" cy="201" rx="4" ry="2.4" fill="#2a1a22"/>
+  <!-- brows -->
+  <path d="M160,188 q12,-5 24,-1" stroke="#2a1a22" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M216,187 q12,-4 24,1" stroke="#2a1a22" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- lips -->
+  <path d="M186,238 q14,8 28,0 q-14,4 -28,0" fill="#a85a5a"/>
+  <!-- pearl earring -->
+  <circle cx="124" cy="218" r="4" fill="#f8eedd"/>
+  <circle cx="276" cy="218" r="4" fill="#f8eedd"/>
+  <!-- subtle highlight -->
+  <ellipse cx="170" cy="170" rx="14" ry="22" fill="#ffffff" opacity="0.06"/>
+</svg>

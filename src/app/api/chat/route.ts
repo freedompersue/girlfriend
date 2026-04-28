@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { chatWithCharacter, generateImage } from "@/lib/minimax";
-import { getUserProfileString, extractUserProfile } from "@/lib/memory";
+import {
+  getUserProfileString,
+  extractUserProfile,
+  getChatSummary,
+  maybeRefreshChatSummary,
+} from "@/lib/memory";
 import { addAffinity, getAffinity, getAffinityPromptHint } from "@/lib/affinity";
 import { getTodayEvent, checkBirthdayEvent, getMemoryRecall } from "@/lib/events";
 import { analyzeMood } from "@/lib/mood";
@@ -48,16 +53,23 @@ export async function POST(req: NextRequest) {
 
   const history = await prisma.message.findMany({
     where: { userId: user.id, characterId: character.id },
-    orderBy: { createdAt: "asc" },
-    take: 40,
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: { role: true, content: true, createdAt: true },
   });
+  history.reverse(); // chronological order for the LLM
 
   const userProfile = await getUserProfileString(user.id);
+  const chatSummary = await getChatSummary(user.id, character.id);
 
   const affinityData = await getAffinity(user.id, character.id);
   const affinityHint = getAffinityPromptHint(affinityData.level);
 
   let contextHints = `\n\n【关系状态】好感等级: ${affinityData.levelInfo.name}（${affinityData.score}分）。${affinityHint}`;
+
+  if (chatSummary?.summary) {
+    contextHints += `\n【过往对话回忆（早期已发生的事）】\n${chatSummary.summary}\n注意：以上是较早的回忆，不要复述，只在自然时机偶尔提起。下面才是最近的对话。`;
+  }
 
   const todayEvent = getTodayEvent();
   if (todayEvent) {
@@ -174,6 +186,7 @@ export async function POST(req: NextRequest) {
 
   extractUserProfile(user.id, message, replyText).catch(() => {});
   analyzeMood(user.id, character.id, message, replyText).catch(() => {});
+  maybeRefreshChatSummary(user.id, character.id).catch(() => {});
 
   const newMilestones = await checkMilestones(
     user.id,

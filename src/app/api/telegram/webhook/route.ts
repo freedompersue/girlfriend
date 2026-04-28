@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { chatWithCharacter } from "@/lib/minimax";
 import { CHARACTER_DATA } from "@/lib/characters";
+import {
+  getUserProfileString,
+  extractUserProfile,
+  getChatSummary,
+  maybeRefreshChatSummary,
+} from "@/lib/memory";
+import { addAffinity } from "@/lib/affinity";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
@@ -81,7 +88,8 @@ export async function POST(req: NextRequest) {
   const history = await prisma.message.findMany({
     where: { userId: user.id, characterId: user.selectedCharacter.id },
     orderBy: { createdAt: "desc" },
-    take: 20,
+    take: 12,
+    select: { role: true, content: true },
   });
 
   const msgs = history.reverse().map((m) => ({
@@ -90,9 +98,12 @@ export async function POST(req: NextRequest) {
   }));
   msgs.push({ role: "user", content: text });
 
-  const profileItems = await prisma.userProfile.findMany({ where: { userId: user.id } });
-  const profileStr = profileItems.map((p) => `${p.key}: ${p.value}`).join("\n") || "暂无";
-  const systemPrompt = charData.systemPrompt.replace("{user_profile}", profileStr);
+  const profileStr = await getUserProfileString(user.id);
+  const chatSummary = await getChatSummary(user.id, user.selectedCharacter.id);
+  let systemPrompt = charData.systemPrompt.replace("{user_profile}", profileStr);
+  if (chatSummary?.summary) {
+    systemPrompt += `\n\n【过往对话回忆（早期已发生的事）】\n${chatSummary.summary}`;
+  }
 
   try {
     const reply = await chatWithCharacter(systemPrompt, msgs);
@@ -106,6 +117,11 @@ export async function POST(req: NextRequest) {
     });
 
     await sendTelegramMessage(chatId, cleanReply);
+
+    // Background memory + affinity work, parity with web chat.
+    extractUserProfile(user.id, text, cleanReply).catch(() => {});
+    maybeRefreshChatSummary(user.id, user.selectedCharacter.id).catch(() => {});
+    addAffinity(user.id, user.selectedCharacter.id, 2, "telegram").catch(() => {});
   } catch (error) {
     console.error("Telegram chat error:", error);
     await sendTelegramMessage(chatId, "😵 发生了一些问题，请稍后再试。");

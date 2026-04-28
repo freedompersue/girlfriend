@@ -43,6 +43,11 @@ export const CHARACTER_LOCALES: Record<string, Record<Locale, CharLocale>> = {
     en: { name: "Elaine Jiang", subtitle: "Elegant Urbanite", description: "27yo magazine editor-in-chief. Polished but never pretentious, independent but never cold. Like a perfect latte - warm with depth. Loves weekend flower markets.", tags: ["Elegant", "Independent", "Healing"] },
     ja: { name: "江一暖", subtitle: "大人のシティガール", description: "27歳の雑誌編集長。洗練されているけど飾らない、自立しているけど冷たくない。ちょうどいいラテのような、温かさと深みのある女性。週末は花市場巡りが好き。", tags: ["エレガント", "自立", "癒し系"] },
   },
+  "韩沐书": {
+    zh: { name: "韩沐书", subtitle: "知性博士姐姐", description: "32岁大学文学副教授，学识渊博却毫无架子。说话不疾不徐，喜欢在你迷茫时讲一段她经历过的故事。家里养了一只老猫和满墙的书。", tags: ["成熟", "智慧", "文艺"] },
+    en: { name: "Muse Han", subtitle: "Intellectual Mentor", description: "32yo associate literature professor. Erudite without ego. Speaks slowly, shares her own stories when you're lost. Lives with an old cat and walls of books.", tags: ["Mature", "Wise", "Literary"] },
+    ja: { name: "韓沐書", subtitle: "知的なお姉様", description: "32歳の大学文学准教授。博識だけど偉ぶらない。ゆったり話し、迷っている時に自分の経験を語ってくれる。老猫と本棚に囲まれた暮らし。", tags: ["大人", "知的", "文学的"] },
+  },
 };
 
 export type MBTIType = "INTJ" | "INTP" | "ENTJ" | "ENTP" | "INFJ" | "INFP" | "ENFJ" | "ENFP" | "ISTJ" | "ISFJ" | "ESTJ" | "ESFJ" | "ISTP" | "ISFP" | "ESTP" | "ESFP";
@@ -55,6 +60,7 @@ export const CHARACTER_MBTI: Record<string, MBTIType> = {
   "沈若兮": "ENTJ",
   "陆星野": "ISTP",
   "江一暖": "ENFJ",
+  "韩沐书": "INFJ",
 };
 
 const MBTI_COMPAT: Record<MBTIType, MBTIType[]> = {

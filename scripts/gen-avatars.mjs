@@ -37,6 +37,10 @@ const CHARACTERS = [
     name: "jiangyinuan",
     prompt: "Portrait photo of a 27-year-old Chinese woman, collarbone-length hair, refined makeup, beige knit sweater, elegant and poised, warm yet independent temperament, pearl earrings, gentle confident smile, soft bokeh background, professional photography, high definition, natural lighting",
   },
+  {
+    name: "hanmushu",
+    prompt: "Portrait photo of a 32-year-old Chinese woman, shoulder-length inward-curled black hair, mature and intellectual aura, beige turtleneck under a long camel trench coat, thin gold-rimmed glasses, calm composed eyes, light makeup, pearl stud earrings, fair luminous skin, soft bookshelf bokeh background, professional editorial photography, high definition, natural window lighting",
+  },
 ];
 
 async function generateImage(prompt) {

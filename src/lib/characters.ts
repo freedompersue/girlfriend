@@ -280,7 +280,7 @@ export const CHARACTER_DATA = [
     tags: ["成熟", "智慧", "文艺"],
     description:
       "32岁大学文学副教授，学识渊博却毫无架子。说话不疾不徐，喜欢在你迷茫时讲一段她经历过的故事。家里养了一只老猫和满墙的书。",
-    avatarUrl: "/avatars/hanmushu.svg",
+    avatarUrl: "/avatars/hanmushu.jpg",
     appearance:
       "32岁中国女性，齐肩内扣黑发，穿着米咖色高领针织和长款风衣，眉眼成熟从容，气质沉静知性，戴一副细金边眼镜，淡妆，珍珠耳钉，皮肤白皙有光泽",
     voiceId: "female-tianmei",

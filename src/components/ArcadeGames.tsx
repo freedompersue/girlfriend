@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Grid3X3,
@@ -13,7 +13,7 @@ import {
 import type { Locale } from "@/lib/i18n";
 
 type Translate = (key: string, params?: Record<string, string>) => string;
-type ArcadeGameType = "match_three" | "memory_match" | "photo_puzzle";
+type ArcadeGameType = "match_three" | "memory_match" | "photo_puzzle" | "gomoku";
 
 interface ChatMessage {
   id: string;
@@ -72,10 +72,12 @@ const FALLBACK_ARCADE_GAME_TYPES: ArcadeGameType[] = [
   "match_three",
   "memory_match",
   "photo_puzzle",
+  "gomoku",
 ];
 
 const MATCH_SIZE = 5;
 const PUZZLE_SIZE = 3;
+const GOMOKU_SIZE = 9;
 const MATCH_SYMBOLS = ["☕", "📚", "🌸", "🎵", "⭐", "💌"];
 const SYMBOL_STYLES: Record<string, string> = {
   "☕": "bg-gradient-to-br from-amber-500/25 to-amber-700/10 border-amber-500/40",
@@ -96,8 +98,71 @@ const GAME_ICONS: Record<ArcadeGameType, typeof Grid3X3> = {
   match_three: Grid3X3,
   memory_match: Sparkles,
   photo_puzzle: ImageIcon,
+  gomoku: Grid3X3,
 };
 
+/* ─── Particle burst effect ─── */
+interface BurstParticle {
+  id: number;
+  x: number;
+  y: number;
+  emoji: string;
+  angle: number;
+  dist: number;
+  scale: number;
+}
+
+function BurstEffect({ particles }: { particles: BurstParticle[] }) {
+  return (
+    <span className="pointer-events-none absolute inset-0 overflow-visible" aria-hidden>
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          className="absolute animate-match-burst"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            fontSize: `${14 * p.scale}px`,
+            transform: `translate(-50%,-50%) rotate(${p.angle}rad)`,
+            opacity: 0,
+          }}
+        >
+          {p.emoji}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function createBurstParticles(tileIndices: number[], symbols: string[]): BurstParticle[] {
+  const particles: BurstParticle[] = [];
+  let id = 0;
+  const sparkles = ["✨", "💫", "⭐", "🌟", "💥"];
+  for (const idx of tileIndices) {
+    const row = Math.floor(idx / MATCH_SIZE);
+    const col = idx % MATCH_SIZE;
+    const cx = (col + 0.5) * (100 / MATCH_SIZE);
+    const cy = (row + 0.5) * (100 / MATCH_SIZE);
+    const symbol = symbols[idx];
+    // Main symbol burst
+    particles.push({ id: id++, x: cx, y: cy, emoji: symbol, angle: Math.random() * Math.PI * 2, dist: 20 + Math.random() * 30, scale: 0.8 + Math.random() * 0.5 });
+    // Sparkle particles
+    for (let i = 0; i < 3; i++) {
+      particles.push({
+        id: id++,
+        x: cx,
+        y: cy,
+        emoji: sparkles[Math.floor(Math.random() * sparkles.length)],
+        angle: (Math.PI * 2 * i) / 3 + Math.random() * 0.8,
+        dist: 15 + Math.random() * 40,
+        scale: 0.5 + Math.random() * 0.4,
+      });
+    }
+  }
+  return particles;
+}
+
+/* ─── Utility functions ─── */
 function shuffle<T>(items: T[]) {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -234,6 +299,147 @@ function starText(stars: number) {
   return "★".repeat(stars) + "☆".repeat(3 - stars);
 }
 
+/* ─── Gomoku AI ─── */
+type GomokuCell = 0 | 1 | 2; // 0=empty, 1=player(black), 2=AI(white)
+
+function createGomokuBoard(): GomokuCell[] {
+  return Array(GOMOKU_SIZE * GOMOKU_SIZE).fill(0) as GomokuCell[];
+}
+
+const GOMOKU_DIRS = [
+  [0, 1], [1, 0], [1, 1], [1, -1],
+];
+
+function checkGomokuWin(board: GomokuCell[], player: GomokuCell): boolean {
+  for (let r = 0; r < GOMOKU_SIZE; r++) {
+    for (let c = 0; c < GOMOKU_SIZE; c++) {
+      if (board[r * GOMOKU_SIZE + c] !== player) continue;
+      for (const [dr, dc] of GOMOKU_DIRS) {
+        let count = 1;
+        for (let i = 1; i < 5; i++) {
+          const nr = r + dr * i;
+          const nc = c + dc * i;
+          if (nr < 0 || nr >= GOMOKU_SIZE || nc < 0 || nc >= GOMOKU_SIZE) break;
+          if (board[nr * GOMOKU_SIZE + nc] !== player) break;
+          count++;
+        }
+        if (count >= 5) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isBoardFull(board: GomokuCell[]): boolean {
+  return board.every((cell) => cell !== 0);
+}
+
+function scoreGomokuLine(count: number, openEnds: number): number {
+  if (count >= 5) return 100000;
+  if (count === 4) {
+    if (openEnds === 2) return 50000;
+    if (openEnds === 1) return 8000;
+  }
+  if (count === 3) {
+    if (openEnds === 2) return 4000;
+    if (openEnds === 1) return 800;
+  }
+  if (count === 2) {
+    if (openEnds === 2) return 400;
+    if (openEnds === 1) return 80;
+  }
+  if (count === 1) {
+    if (openEnds === 2) return 40;
+    if (openEnds === 1) return 8;
+  }
+  return 0;
+}
+
+function evaluateGomokuPosition(board: GomokuCell[], player: GomokuCell): number {
+  const opponent: GomokuCell = player === 1 ? 2 : 1;
+  let score = 0;
+
+  for (let r = 0; r < GOMOKU_SIZE; r++) {
+    for (let c = 0; c < GOMOKU_SIZE; c++) {
+      for (const [dr, dc] of GOMOKU_DIRS) {
+        const er = r + dr * 4;
+        const ec = c + dc * 4;
+        if (er < 0 || er >= GOMOKU_SIZE || ec < 0 || ec >= GOMOKU_SIZE) continue;
+
+        let pCount = 0, oCount = 0;
+        for (let i = 0; i < 5; i++) {
+          const cell = board[(r + dr * i) * GOMOKU_SIZE + (c + dc * i)];
+          if (cell === player) pCount++;
+          else if (cell === opponent) oCount++;
+        }
+
+        if (oCount === 0 && pCount > 0) {
+          let openEnds = 0;
+          // Check before
+          const br = r - dr, bc = c - dc;
+          if (br >= 0 && br < GOMOKU_SIZE && bc >= 0 && bc < GOMOKU_SIZE && board[br * GOMOKU_SIZE + bc] === 0) openEnds++;
+          // Check after
+          const ar = r + dr * 5, ac = c + dc * 5;
+          if (ar >= 0 && ar < GOMOKU_SIZE && ac >= 0 && ac < GOMOKU_SIZE && board[ar * GOMOKU_SIZE + ac] === 0) openEnds++;
+          score += scoreGomokuLine(pCount, openEnds);
+        }
+      }
+    }
+  }
+  return score;
+}
+
+function getGomokuAIMove(board: GomokuCell[]): number {
+  // If board is empty, play center
+  if (board.every((c) => c === 0)) {
+    return Math.floor(GOMOKU_SIZE / 2) * GOMOKU_SIZE + Math.floor(GOMOKU_SIZE / 2);
+  }
+
+  let bestScore = -1;
+  let bestMoves: number[] = [];
+
+  // Only consider cells adjacent to existing stones
+  const candidates = new Set<number>();
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] === 0) continue;
+    const r = Math.floor(i / GOMOKU_SIZE);
+    const c = i % GOMOKU_SIZE;
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= GOMOKU_SIZE || nc < 0 || nc >= GOMOKU_SIZE) continue;
+        const ni = nr * GOMOKU_SIZE + nc;
+        if (board[ni] === 0) candidates.add(ni);
+      }
+    }
+  }
+
+  if (candidates.size === 0) return board.indexOf(0);
+
+  for (const pos of candidates) {
+    // Score for AI playing here (offensive)
+    board[pos] = 2;
+    const attackScore = evaluateGomokuPosition(board, 2);
+    board[pos] = 0;
+
+    // Score for blocking player (defensive)
+    board[pos] = 1;
+    const defendScore = evaluateGomokuPosition(board, 1);
+    board[pos] = 0;
+
+    const totalScore = attackScore * 1.1 + defendScore;
+    if (totalScore > bestScore) {
+      bestScore = totalScore;
+      bestMoves = [pos];
+    } else if (totalScore === bestScore) {
+      bestMoves.push(pos);
+    }
+  }
+
+  return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+}
+
+/* ─── Main Component ─── */
 export function ArcadeGames({
   charName,
   charAvatarUrl,
@@ -266,6 +472,7 @@ export function ArcadeGames({
   const [matchDone, setMatchDone] = useState(false);
   const [matchedTiles, setMatchedTiles] = useState<Set<number> | null>(null);
   const [scorePopup, setScorePopup] = useState<{ points: number; key: number } | null>(null);
+  const [burstParticles, setBurstParticles] = useState<BurstParticle[]>([]);
 
   const [memoryCards, setMemoryCards] = useState(() => createMemoryCards(memorySymbols));
   const [firstCard, setFirstCard] = useState<string | null>(null);
@@ -276,6 +483,13 @@ export function ArcadeGames({
   const [puzzleBoard, setPuzzleBoard] = useState(createPuzzleBoard);
   const [puzzleMoves, setPuzzleMoves] = useState(0);
   const [puzzleDone, setPuzzleDone] = useState(false);
+
+  // Gomoku state
+  const [gomokuBoard, setGomokuBoard] = useState(createGomokuBoard);
+  const [gomokuTurn, setGomokuTurn] = useState<1 | 2>(1); // 1=player, 2=AI
+  const [gomokuWinner, setGomokuWinner] = useState<0 | 1 | 2 | 3>(0); // 0=none, 1=player, 2=AI, 3=draw
+  const [gomokuLastMove, setGomokuLastMove] = useState<number | null>(null);
+  const gomokuAIRef = useRef(false);
 
   const activeInfo = useMemo(
     () => games.find((game) => game.type === activeGame) || games[0],
@@ -293,7 +507,38 @@ export function ArcadeGames({
     return () => window.clearTimeout(timer);
   }, [memorySymbols]);
 
-  const completeArcade = async (gameType: ArcadeGameType, score: number, stars: number) => {
+  // Gomoku AI effect
+  useEffect(() => {
+    if (activeGame !== "gomoku" || gomokuTurn !== 2 || gomokuWinner !== 0 || gomokuAIRef.current) return;
+    gomokuAIRef.current = true;
+
+    const timer = window.setTimeout(() => {
+      setGomokuBoard((prev) => {
+        const move = getGomokuAIMove(prev);
+        const next = [...prev] as GomokuCell[];
+        next[move] = 2;
+        setGomokuLastMove(move);
+
+        if (checkGomokuWin(next, 2)) {
+          setGomokuWinner(2);
+          setGomokuTurn(1);
+        } else if (isBoardFull(next)) {
+          setGomokuWinner(3);
+          setGomokuTurn(1);
+        } else {
+          setGomokuTurn(1);
+        }
+        gomokuAIRef.current = false;
+        return next;
+      });
+    }, 400);
+    return () => {
+      window.clearTimeout(timer);
+      gomokuAIRef.current = false;
+    };
+  }, [activeGame, gomokuTurn, gomokuWinner]);
+
+  const completeArcade = useCallback(async (gameType: ArcadeGameType, score: number, stars: number) => {
     if (rewarding) return;
     setRewarding(gameType);
     setError(null);
@@ -311,7 +556,7 @@ export function ArcadeGames({
     } finally {
       setRewarding(null);
     }
-  };
+  }, [rewarding, locale, t, onComplete]);
 
   const resetMatchThree = () => {
     setMatchBoard(createMatchBoard());
@@ -321,6 +566,7 @@ export function ArcadeGames({
     setMatchDone(false);
     setMatchedTiles(null);
     setScorePopup(null);
+    setBurstParticles([]);
     setError(null);
   };
 
@@ -337,6 +583,15 @@ export function ArcadeGames({
     setPuzzleBoard(createPuzzleBoard());
     setPuzzleMoves(0);
     setPuzzleDone(false);
+    setError(null);
+  };
+
+  const resetGomoku = () => {
+    setGomokuBoard(createGomokuBoard());
+    setGomokuTurn(1);
+    setGomokuWinner(0);
+    setGomokuLastMove(null);
+    gomokuAIRef.current = false;
     setError(null);
   };
 
@@ -376,8 +631,9 @@ export function ArcadeGames({
       return;
     }
 
-    // Highlight matched tiles first, then resolve after a short delay
+    // Highlight matched tiles + burst particles
     setMatchedTiles(immediateMatches);
+    setBurstParticles(createBurstParticles([...immediateMatches], swapped));
     const capturedScore = matchScore;
     window.setTimeout(() => {
       const resolved = resolveMatchBoard(swapped);
@@ -386,6 +642,7 @@ export function ArcadeGames({
       setMatchBoard(resolved.board);
       setMatchScore(nextScore);
       setMatchedTiles(null);
+      setBurstParticles([]);
       setScorePopup({ points: earnedPoints, key: Date.now() });
       window.setTimeout(() => setScorePopup(null), 800);
       if (nextScore >= 1200 || nextMoves === 0) {
@@ -393,7 +650,7 @@ export function ArcadeGames({
         setMatchDone(true);
         void completeArcade("match_three", nextScore, stars);
       }
-    }, 320);
+    }, 380);
   };
 
   const getMemoryStars = (moves: number) => {
@@ -471,6 +728,28 @@ export function ArcadeGames({
     }
   };
 
+  const handleGomokuClick = (index: number) => {
+    if (gomokuTurn !== 1 || gomokuWinner !== 0 || rewarding === "gomoku") return;
+    if (gomokuBoard[index] !== 0) return;
+
+    const next = [...gomokuBoard] as GomokuCell[];
+    next[index] = 1;
+    setGomokuBoard(next);
+    setGomokuLastMove(index);
+
+    if (checkGomokuWin(next, 1)) {
+      setGomokuWinner(1);
+      const stars = 3;
+      void completeArcade("gomoku", 1500, stars);
+    } else if (isBoardFull(next)) {
+      setGomokuWinner(3);
+      const stars = 2;
+      void completeArcade("gomoku", 800, stars);
+    } else {
+      setGomokuTurn(2);
+    }
+  };
+
   const renderHeader = (score: number, moves: number, stars?: number) => (
     <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
       <div className="flex items-center gap-2">
@@ -493,7 +772,7 @@ export function ArcadeGames({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="relative grid grid-cols-5 gap-1 mx-auto" style={{ maxWidth: "15rem" }}>
           {matchBoard.map((symbol, index) => {
             const isMatched = matchedTiles?.has(index);
             const isSelected = selectedTile === index;
@@ -502,20 +781,20 @@ export function ArcadeGames({
                 key={`${symbol}-${index}`}
                 onClick={() => handleTileClick(index)}
                 disabled={matchDone || rewarding === "match_three" || Boolean(matchedTiles)}
-                className={`aspect-square rounded-xl border text-lg sm:text-xl flex items-center justify-center transition-all duration-200 touch-manipulation ${
+                className={`aspect-square rounded-lg border text-sm flex items-center justify-center transition-all duration-200 touch-manipulation ${
                   isMatched
-                    ? "scale-90 opacity-60 ring-2 ring-primary/60 animate-pulse"
+                    ? "scale-0 opacity-0 animate-match-shrink"
                     : isSelected
                       ? "scale-[0.92] ring-2 ring-primary shadow-[0_0_12px_rgba(168,85,247,0.35)] border-primary"
                       : `${SYMBOL_STYLES[symbol] || "border-card-border bg-card-bg"} hover:scale-105 hover:shadow-md`
                 }`}
-                style={isMatched ? { transition: "transform 0.3s, opacity 0.3s" } : undefined}
                 title={symbol}
               >
                 {symbol}
               </button>
             );
           })}
+          {burstParticles.length > 0 && <BurstEffect particles={burstParticles} />}
         </div>
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] text-muted leading-relaxed">{t("games.match_three_hint")}</p>
@@ -618,66 +897,192 @@ export function ArcadeGames({
     );
   };
 
-  return (
-    <section className="p-3 bg-card-bg rounded-lg border border-card-border/70 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <Trophy size={13} className="text-amber-500" />
-            {t("games.arcade_title")}
-          </h4>
-          <p className="text-[11px] text-muted mt-1 leading-relaxed">
-            {t("games.arcade_subtitle", { name: charName })}
-          </p>
+  const renderGomoku = () => {
+    const statusText =
+      gomokuWinner === 1 ? t("games.gomoku_you_win", { name: charName }) :
+      gomokuWinner === 2 ? t("games.gomoku_ai_wins", { name: charName }) :
+      gomokuWinner === 3 ? t("games.gomoku_draw") :
+      gomokuTurn === 1 ? t("games.gomoku_your_turn") :
+      t("games.gomoku_thinking", { name: charName });
+
+    return (
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className={`font-medium ${gomokuWinner === 1 ? "text-green-400" : gomokuWinner === 2 ? "text-amber-400" : gomokuWinner === 3 ? "text-muted" : "text-muted"}`}>
+            {statusText}
+          </span>
+          {gomokuWinner !== 0 && (
+            <span className="text-primary tracking-normal">{starText(gomokuWinner === 1 ? 3 : 2)}</span>
+          )}
         </div>
-        {rewarding ? <Loader2 size={15} className="animate-spin text-primary shrink-0" /> : null}
-      </div>
+        <div className="mx-auto" style={{ maxWidth: "18rem" }}>
+          <div
+            className="grid gap-0 mx-auto bg-amber-900/20 border border-amber-800/30 rounded-lg p-1"
+            style={{
+              gridTemplateColumns: `repeat(${GOMOKU_SIZE}, 1fr)`,
+              aspectRatio: "1",
+            }}
+          >
+            {gomokuBoard.map((cell, index) => {
+              const row = Math.floor(index / GOMOKU_SIZE);
+              const col = index % GOMOKU_SIZE;
+              const isLast = gomokuLastMove === index;
+              const isEdge = row === 0 || row === GOMOKU_SIZE - 1 || col === 0 || col === GOMOKU_SIZE - 1;
+              // Intersection dot for star points
+              const isStarPoint =
+                (row === 2 && col === 2) || (row === 2 && col === 6) ||
+                (row === 6 && col === 2) || (row === 6 && col === 6) ||
+                (row === 4 && col === 4);
 
-      <div className="grid grid-cols-3 gap-1.5">
-        {games.map((game) => {
-          const Icon = GAME_ICONS[game.type];
-          return (
-            <button
-              key={game.type}
-              onClick={() => setActiveGame(game.type)}
-              className={`min-h-16 px-2 py-2 rounded-lg border text-left transition-colors ${
-                activeGame === game.type
-                  ? "border-primary bg-primary/10"
-                  : "border-card-border bg-surface hover:border-primary/40"
-              }`}
-            >
-              <div className="flex items-center gap-1.5 mb-1">
-                <Icon size={13} className="text-primary" />
-                <span className="text-[11px] font-semibold truncate">{game.title}</span>
-              </div>
-              <p className="text-[10px] text-muted truncate">+{game.reward} · {game.durationHint}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {activeInfo ? (
-        <div className="rounded-lg border border-card-border/70 bg-surface p-3 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold">{activeInfo.title}</p>
-              <p className="text-[11px] text-muted leading-relaxed mt-0.5">{activeInfo.description}</p>
-            </div>
-            {(matchDone && activeGame === "match_three") || (memoryDone && activeGame === "memory_match") || (puzzleDone && activeGame === "photo_puzzle") ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[10px] shrink-0">
-                <CheckCircle2 size={11} />
-                {t("games.complete_local")}
-              </span>
-            ) : null}
+              return (
+                <button
+                  key={`g-${index}`}
+                  onClick={() => handleGomokuClick(index)}
+                  disabled={gomokuTurn !== 1 || gomokuWinner !== 0 || cell !== 0}
+                  className="relative flex items-center justify-center transition-colors touch-manipulation"
+                  style={{ aspectRatio: "1" }}
+                >
+                  {/* Grid lines */}
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span className="absolute bg-amber-800/25" style={{
+                      height: "1px",
+                      left: isEdge && col === 0 ? "50%" : 0,
+                      right: isEdge && col === GOMOKU_SIZE - 1 ? "50%" : 0,
+                      top: "50%",
+                    }} />
+                    <span className="absolute bg-amber-800/25" style={{
+                      width: "1px",
+                      top: isEdge && row === 0 ? "50%" : 0,
+                      bottom: isEdge && row === GOMOKU_SIZE - 1 ? "50%" : 0,
+                      left: "50%",
+                    }} />
+                    {isStarPoint && cell === 0 && (
+                      <span className="absolute w-1.5 h-1.5 bg-amber-700/40 rounded-full" />
+                    )}
+                  </span>
+                  {/* Stone */}
+                  {cell !== 0 && (
+                    <span
+                      className={`relative z-10 rounded-full transition-all duration-200 ${
+                        cell === 1
+                          ? "bg-gradient-to-br from-gray-700 to-gray-900 shadow-md border border-gray-600/50"
+                          : "bg-gradient-to-br from-white to-gray-200 shadow-md border border-gray-300/50"
+                      } ${isLast ? "ring-2 ring-primary/70" : ""}`}
+                      style={{
+                        width: "72%",
+                        height: "72%",
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
-
-          {activeGame === "match_three" && renderMatchThree()}
-          {activeGame === "memory_match" && renderMemoryMatch()}
-          {activeGame === "photo_puzzle" && renderPhotoPuzzle()}
         </div>
-      ) : null}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-muted leading-relaxed">
+            {t("games.gomoku_hint", { name: charName })}
+          </p>
+          <button onClick={resetGomoku} className="shrink-0 p-2 rounded-lg bg-card-bg border border-card-border hover:border-primary/50" title={t("games.restart")}>
+            <RotateCcw size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
-      {error ? <p className="text-xs text-amber-500 leading-relaxed">{error}</p> : null}
-    </section>
+  const isGameDone = (type: ArcadeGameType) => {
+    if (type === "match_three") return matchDone;
+    if (type === "memory_match") return memoryDone;
+    if (type === "photo_puzzle") return puzzleDone;
+    if (type === "gomoku") return gomokuWinner !== 0;
+    return false;
+  };
+
+  // Grid columns: 4 games → grid-cols-4 on bigger screens, 2 cols on mobile
+  const gameCount = games.length;
+
+  return (
+    <>
+      <style>{`
+        @keyframes match-burst {
+          0% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+          50% { opacity: 1; }
+          100% { opacity: 0; transform: translate(-50%,-50%) scale(0.3); }
+        }
+        .animate-match-burst {
+          animation: match-burst 0.5s ease-out forwards;
+        }
+        @keyframes match-shrink {
+          0% { transform: scale(1); opacity: 1; }
+          40% { transform: scale(1.15) rotate(5deg); opacity: 0.8; }
+          100% { transform: scale(0) rotate(20deg); opacity: 0; }
+        }
+        .animate-match-shrink {
+          animation: match-shrink 0.35s ease-in forwards;
+        }
+      `}</style>
+      <section className="p-3 bg-card-bg rounded-lg border border-card-border/70 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="text-xs font-semibold flex items-center gap-1.5">
+              <Trophy size={13} className="text-amber-500" />
+              {t("games.arcade_title")}
+            </h4>
+            <p className="text-[11px] text-muted mt-1 leading-relaxed">
+              {t("games.arcade_subtitle", { name: charName })}
+            </p>
+          </div>
+          {rewarding ? <Loader2 size={15} className="animate-spin text-primary shrink-0" /> : null}
+        </div>
+
+        <div className={`grid gap-1.5 ${gameCount <= 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+          {games.map((game) => {
+            const Icon = GAME_ICONS[game.type];
+            return (
+              <button
+                key={game.type}
+                onClick={() => setActiveGame(game.type)}
+                className={`min-h-16 px-2 py-2 rounded-lg border text-left transition-colors ${
+                  activeGame === game.type
+                    ? "border-primary bg-primary/10"
+                    : "border-card-border bg-surface hover:border-primary/40"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Icon size={13} className="text-primary" />
+                  <span className="text-[11px] font-semibold truncate">{game.title}</span>
+                </div>
+                <p className="text-[10px] text-muted truncate">+{game.reward} · {game.durationHint}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeInfo ? (
+          <div className="rounded-lg border border-card-border/70 bg-surface p-3 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold">{activeInfo.title}</p>
+                <p className="text-[11px] text-muted leading-relaxed mt-0.5">{activeInfo.description}</p>
+              </div>
+              {isGameDone(activeGame) ? (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[10px] shrink-0">
+                  <CheckCircle2 size={11} />
+                  {t("games.complete_local")}
+                </span>
+              ) : null}
+            </div>
+
+            {activeGame === "match_three" && renderMatchThree()}
+            {activeGame === "memory_match" && renderMemoryMatch()}
+            {activeGame === "photo_puzzle" && renderPhotoPuzzle()}
+            {activeGame === "gomoku" && renderGomoku()}
+          </div>
+        ) : null}
+
+        {error ? <p className="text-xs text-amber-500 leading-relaxed">{error}</p> : null}
+      </section>
+    </>
   );
 }

@@ -6,7 +6,7 @@ import type { Locale } from "./i18n";
 import { getLocalizedChar } from "./character-i18n";
 
 export type MiniGameType = "truth" | "deep_questions" | "mood_guess" | "story_chain";
-export type ArcadeGameType = "match_three" | "memory_match" | "photo_puzzle";
+export type ArcadeGameType = "match_three" | "memory_match" | "photo_puzzle" | "gomoku";
 export type GameSessionStatus = "active" | "completed" | "abandoned";
 export type DailyTaskType = "share_today" | "warm_reply" | "play_game";
 
@@ -153,6 +153,13 @@ export const ARCADE_GAME_CATALOG: ArcadeGameCatalogItem[] = [
     reward: 10,
     durationHint: "1-2 分钟",
   },
+  {
+    type: "gomoku",
+    title: "五子棋",
+    description: "和她在棋盘上下一局五子棋，赢了有额外好感。",
+    reward: 10,
+    durationHint: "3-5 分钟",
+  },
 ];
 
 const GAME_CATALOG_LOCALES: Record<
@@ -199,6 +206,11 @@ const ARCADE_GAME_CATALOG_LOCALES: Record<
     zh: { title: "拼图相册", description: "把她的照片拼回来，完成后会留下共同经历。", durationHint: "1-2 分钟" },
     en: { title: "Photo Puzzle", description: "Put her photo back together and turn the round into a shared moment.", durationHint: "1-2 min" },
     ja: { title: "写真パズル", description: "彼女の写真を元に戻し、終わったら小さな思い出になります。", durationHint: "1〜2分" },
+  },
+  gomoku: {
+    zh: { title: "五子棋", description: "和她在棋盘上下一局五子棋，赢了有额外好感。", durationHint: "3-5 分钟" },
+    en: { title: "Gomoku", description: "Play five-in-a-row with her. Win for extra affinity.", durationHint: "3-5 min" },
+    ja: { title: "五目並べ", description: "彼女と五目並べで対局。勝てば好感度が上がります。", durationHint: "3〜5分" },
   },
 };
 

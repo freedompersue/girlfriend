@@ -71,15 +71,23 @@ export async function checkBirthdayEvent(userId: string): Promise<SpecialEvent |
 
 export async function getMemoryRecall(userId: string): Promise<string | null> {
   const profiles = await prisma.userProfile.findMany({
-    where: { userId },
+    where: {
+      userId,
+      NOT: { key: { startsWith: "__" } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 
-  if (profiles.length === 0) return null;
+  // Exclude "name" from recall — the character should use its own way of
+  // addressing the user, and the stored name may have been mis-extracted
+  // from a different character's context.
+  const recallable = profiles.filter((p) => p.key !== "name");
+
+  if (recallable.length === 0) return null;
 
   if (Math.random() > 0.25) return null;
 
-  const item = profiles[Math.floor(Math.random() * Math.min(profiles.length, 10))];
+  const item = recallable[Math.floor(Math.random() * Math.min(recallable.length, 10))];
 
   const recallPrompts: Record<string, string> = {
     hobby: `你记得用户之前提到过喜欢${item.value}，可以自然地在对话中提到这个，比如"对了你最近有在${item.value}吗？"`,
@@ -91,7 +99,6 @@ export async function getMemoryRecall(userId: string): Promise<string | null> {
     location: `你知道用户在${item.value}，可以聊聊当地的天气或新闻。`,
     study: `你知道用户在学习${item.value}方面的内容，可以关心一下学业。`,
     work_situation: `你了解用户的工作状况是"${item.value}"，可以适当关心。`,
-    name: `用户的名字是${item.value}，在对话中可以自然地称呼用户的名字。`,
   };
 
   return recallPrompts[item.key] || `你之前了解到用户的${item.key}是"${item.value}"，可以在合适时机自然地提及。`;

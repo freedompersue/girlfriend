@@ -74,9 +74,17 @@ const FALLBACK_ARCADE_GAME_TYPES: ArcadeGameType[] = [
   "photo_puzzle",
 ];
 
-const MATCH_SIZE = 6;
+const MATCH_SIZE = 5;
 const PUZZLE_SIZE = 3;
 const MATCH_SYMBOLS = ["☕", "📚", "🌸", "🎵", "⭐", "💌"];
+const SYMBOL_STYLES: Record<string, string> = {
+  "☕": "bg-gradient-to-br from-amber-500/25 to-amber-700/10 border-amber-500/40",
+  "📚": "bg-gradient-to-br from-blue-500/25 to-blue-700/10 border-blue-500/40",
+  "🌸": "bg-gradient-to-br from-pink-500/25 to-pink-700/10 border-pink-500/40",
+  "🎵": "bg-gradient-to-br from-purple-500/25 to-purple-700/10 border-purple-500/40",
+  "⭐": "bg-gradient-to-br from-yellow-500/25 to-yellow-700/10 border-yellow-500/40",
+  "💌": "bg-gradient-to-br from-rose-500/25 to-rose-700/10 border-rose-500/40",
+};
 const MEMORY_SYMBOLS: Record<Locale, string[]> = {
   zh: ["咖啡", "书页", "花", "音符", "星星", "信"],
   en: ["Coffee", "Page", "Flower", "Note", "Star", "Letter"],
@@ -253,9 +261,11 @@ export function ArcadeGames({
 
   const [matchBoard, setMatchBoard] = useState(createMatchBoard);
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
-  const [matchMoves, setMatchMoves] = useState(18);
+  const [matchMoves, setMatchMoves] = useState(15);
   const [matchScore, setMatchScore] = useState(0);
   const [matchDone, setMatchDone] = useState(false);
+  const [matchedTiles, setMatchedTiles] = useState<Set<number> | null>(null);
+  const [scorePopup, setScorePopup] = useState<{ points: number; key: number } | null>(null);
 
   const [memoryCards, setMemoryCards] = useState(() => createMemoryCards(memorySymbols));
   const [firstCard, setFirstCard] = useState<string | null>(null);
@@ -306,9 +316,11 @@ export function ArcadeGames({
   const resetMatchThree = () => {
     setMatchBoard(createMatchBoard());
     setSelectedTile(null);
-    setMatchMoves(18);
+    setMatchMoves(15);
     setMatchScore(0);
     setMatchDone(false);
+    setMatchedTiles(null);
+    setScorePopup(null);
     setError(null);
   };
 
@@ -329,13 +341,13 @@ export function ArcadeGames({
   };
 
   const getMatchStars = (score: number) => {
-    if (score >= 1500) return 3;
-    if (score >= 900) return 2;
+    if (score >= 1200) return 3;
+    if (score >= 700) return 2;
     return 1;
   };
 
   const handleTileClick = (index: number) => {
-    if (matchDone || rewarding === "match_three") return;
+    if (matchDone || rewarding === "match_three" || matchedTiles) return;
     if (selectedTile === null) {
       setSelectedTile(index);
       return;
@@ -356,7 +368,6 @@ export function ArcadeGames({
     setMatchMoves(nextMoves);
 
     if (immediateMatches.size === 0) {
-      setMatchBoard(matchBoard);
       if (nextMoves === 0) {
         const stars = getMatchStars(matchScore);
         setMatchDone(true);
@@ -365,15 +376,24 @@ export function ArcadeGames({
       return;
     }
 
-    const resolved = resolveMatchBoard(swapped);
-    const nextScore = matchScore + resolved.cleared * 80 + Math.max(0, resolved.cleared - 3) * 25;
-    setMatchBoard(resolved.board);
-    setMatchScore(nextScore);
-    if (nextScore >= 1500 || nextMoves === 0) {
-      const stars = getMatchStars(nextScore);
-      setMatchDone(true);
-      void completeArcade("match_three", nextScore, stars);
-    }
+    // Highlight matched tiles first, then resolve after a short delay
+    setMatchedTiles(immediateMatches);
+    const capturedScore = matchScore;
+    window.setTimeout(() => {
+      const resolved = resolveMatchBoard(swapped);
+      const earnedPoints = resolved.cleared * 80 + Math.max(0, resolved.cleared - 3) * 25;
+      const nextScore = capturedScore + earnedPoints;
+      setMatchBoard(resolved.board);
+      setMatchScore(nextScore);
+      setMatchedTiles(null);
+      setScorePopup({ points: earnedPoints, key: Date.now() });
+      window.setTimeout(() => setScorePopup(null), 800);
+      if (nextScore >= 1200 || nextMoves === 0) {
+        const stars = getMatchStars(nextScore);
+        setMatchDone(true);
+        void completeArcade("match_three", nextScore, stars);
+      }
+    }, 320);
   };
 
   const getMemoryStars = (moves: number) => {
@@ -464,24 +484,38 @@ export function ArcadeGames({
   const renderMatchThree = () => {
     const stars = matchDone ? getMatchStars(matchScore) : undefined;
     return (
-      <div className="space-y-3">
-        {renderHeader(matchScore, matchMoves, stars)}
-        <div className="grid grid-cols-6 gap-1">
-          {matchBoard.map((symbol, index) => (
-            <button
-              key={`${symbol}-${index}`}
-              onClick={() => handleTileClick(index)}
-              disabled={matchDone || rewarding === "match_three"}
-              className={`aspect-square rounded-lg border text-lg sm:text-xl flex items-center justify-center transition-all touch-manipulation ${
-                selectedTile === index
-                  ? "border-primary bg-primary/15 scale-95"
-                  : "border-card-border bg-card-bg hover:border-primary/40"
-              }`}
-              title={symbol}
-            >
-              {symbol}
-            </button>
-          ))}
+      <div className="space-y-2.5">
+        <div className="relative">
+          {renderHeader(matchScore, matchMoves, stars)}
+          {scorePopup && (
+            <span key={scorePopup.key} className="absolute top-0 right-0 text-sm font-bold text-primary animate-bounce">
+              +{scorePopup.points}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {matchBoard.map((symbol, index) => {
+            const isMatched = matchedTiles?.has(index);
+            const isSelected = selectedTile === index;
+            return (
+              <button
+                key={`${symbol}-${index}`}
+                onClick={() => handleTileClick(index)}
+                disabled={matchDone || rewarding === "match_three" || Boolean(matchedTiles)}
+                className={`aspect-square rounded-xl border text-lg sm:text-xl flex items-center justify-center transition-all duration-200 touch-manipulation ${
+                  isMatched
+                    ? "scale-90 opacity-60 ring-2 ring-primary/60 animate-pulse"
+                    : isSelected
+                      ? "scale-[0.92] ring-2 ring-primary shadow-[0_0_12px_rgba(168,85,247,0.35)] border-primary"
+                      : `${SYMBOL_STYLES[symbol] || "border-card-border bg-card-bg"} hover:scale-105 hover:shadow-md`
+                }`}
+                style={isMatched ? { transition: "transform 0.3s, opacity 0.3s" } : undefined}
+                title={symbol}
+              >
+                {symbol}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] text-muted leading-relaxed">{t("games.match_three_hint")}</p>
@@ -497,28 +531,40 @@ export function ArcadeGames({
     const stars = memoryDone ? getMemoryStars(memoryMoves) : undefined;
     const matchedPairs = memoryCards.filter((card) => card.matched).length / 2;
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {renderHeader(Math.max(0, 1600 - memoryMoves * 90), memoryMoves, stars)}
         <div className="grid grid-cols-4 gap-2">
-          {memoryCards.map((card) => (
-            <button
-              key={card.id}
-              onClick={() => handleCardClick(card.id)}
-              disabled={memoryLocked || memoryDone || rewarding === "memory_match"}
-              className={`aspect-[4/3] rounded-lg border text-xs font-medium flex items-center justify-center transition-all touch-manipulation ${
-                card.matched
-                  ? "border-primary/40 bg-primary/15 text-primary"
-                  : card.revealed
-                    ? "border-card-border bg-surface text-foreground"
-                    : "border-card-border bg-card-bg text-muted hover:border-primary/40"
-              }`}
-            >
-              {card.revealed || card.matched ? card.symbol : "?"}
-            </button>
-          ))}
+          {memoryCards.map((card) => {
+            const faceUp = card.revealed || card.matched;
+            return (
+              <button
+                key={card.id}
+                onClick={() => handleCardClick(card.id)}
+                disabled={memoryLocked || memoryDone || rewarding === "memory_match"}
+                className={`aspect-[4/3] rounded-xl border text-xs font-medium flex items-center justify-center transition-all duration-300 touch-manipulation ${
+                  card.matched
+                    ? "border-primary/50 bg-primary/10 text-primary scale-95 opacity-80"
+                    : faceUp
+                      ? "border-primary/30 bg-surface text-foreground shadow-sm"
+                      : "border-card-border bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-muted/60 hover:border-primary/40 hover:from-violet-500/20 hover:to-fuchsia-500/15"
+                }`}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {faceUp ? card.symbol : "?"}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-muted">{matchedPairs}/{memorySymbols.length}</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-muted">{matchedPairs}/{memorySymbols.length}</span>
+            <div className="w-20 h-1.5 bg-card-bg rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-accent-pink rounded-full transition-all duration-300"
+                style={{ width: `${memorySymbols.length > 0 ? (matchedPairs / memorySymbols.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
           <button onClick={resetMemoryMatch} className="p-2 rounded-lg bg-card-bg border border-card-border hover:border-primary/50" title={t("games.restart")}>
             <RotateCcw size={14} />
           </button>
@@ -531,9 +577,9 @@ export function ArcadeGames({
     const stars = puzzleDone ? getPuzzleStars(puzzleMoves) : undefined;
     const imageUrl = charAvatarUrl || "/avatars/hanmushu.jpg";
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {renderHeader(Math.max(0, 1800 - puzzleMoves * 20), puzzleMoves, stars)}
-        <div className="grid grid-cols-3 gap-1 max-w-[18rem] mx-auto">
+        <div className="grid grid-cols-3 gap-1.5 max-w-[16rem] mx-auto">
           {puzzleBoard.map((tile, index) => {
             const isEmpty = tile === EMPTY_TILE;
             const row = Math.floor(tile / PUZZLE_SIZE);
@@ -543,8 +589,10 @@ export function ArcadeGames({
                 key={`${tile}-${index}`}
                 onClick={() => handlePuzzleClick(index)}
                 disabled={isEmpty || puzzleDone || rewarding === "photo_puzzle"}
-                className={`aspect-square rounded-lg border overflow-hidden transition-all touch-manipulation ${
-                  isEmpty ? "border-dashed border-card-border bg-card-bg/50" : "border-card-border bg-card-bg hover:border-primary/50"
+                className={`aspect-square rounded-xl border overflow-hidden transition-all duration-150 touch-manipulation ${
+                  isEmpty
+                    ? "border-dashed border-card-border/60 bg-card-bg/30"
+                    : "border-card-border bg-card-bg hover:border-primary/50 hover:shadow-md active:scale-95"
                 }`}
                 style={
                   isEmpty

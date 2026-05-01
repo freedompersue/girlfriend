@@ -9,10 +9,15 @@ import { prisma } from "./prisma";
 // and session cookie verification.
 
 const isDev = process.env.NODE_ENV === "development";
+const PRODUCTION_AUTH_URL = "https://www.dreamgf.online";
+
+function normalizeOrigin(url: string) {
+  return new URL(url).origin;
+}
 
 const BETTER_AUTH_URL =
   process.env.BETTER_AUTH_URL ||
-  (isDev ? "http://localhost:3000" : undefined);
+  (isDev ? "http://localhost:3000" : PRODUCTION_AUTH_URL);
 
 if (!BETTER_AUTH_URL) {
   throw new Error(
@@ -20,6 +25,10 @@ if (!BETTER_AUTH_URL) {
       "Set it to your public URL, e.g. https://www.dreamgf.online"
   );
 }
+
+const AUTH_ORIGIN = normalizeOrigin(
+  isDev ? BETTER_AUTH_URL : process.env.AUTH_CANONICAL_URL || PRODUCTION_AUTH_URL
+);
 
 const AUTH_SECRET =
   process.env.BETTER_AUTH_SECRET ||
@@ -55,14 +64,14 @@ function getSharedCookieDomain(url: string) {
 const AUTH_COOKIE_DOMAIN =
   process.env.AUTH_COOKIE_DOMAIN ||
   (!isDev && process.env.VERCEL_ENV !== "preview"
-    ? getSharedCookieDomain(BETTER_AUTH_URL)
+    ? getSharedCookieDomain(AUTH_ORIGIN)
     : undefined);
 
 const authBaseURL = isDev
   ? BETTER_AUTH_URL
   : {
       allowedHosts: ["www.dreamgf.online", "dreamgf.online", "*.vercel.app"],
-      fallback: BETTER_AUTH_URL,
+      fallback: AUTH_ORIGIN,
       protocol: "https" as const,
     };
 
@@ -84,6 +93,7 @@ export const auth = betterAuth({
     google: {
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
+      redirectURI: `${AUTH_ORIGIN}/api/auth/callback/google`,
       prompt: "select_account",
     },
   },
@@ -111,7 +121,7 @@ export const auth = betterAuth({
 
   advanced: {
     trustedProxyHeaders: true,
-    useSecureCookies: BETTER_AUTH_URL.startsWith("https://"),
+    useSecureCookies: AUTH_ORIGIN.startsWith("https://"),
     ...(AUTH_COOKIE_DOMAIN
       ? {
           crossSubDomainCookies: {

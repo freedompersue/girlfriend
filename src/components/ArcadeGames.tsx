@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Grid3X3,
@@ -68,34 +68,20 @@ interface ArcadeGamesProps {
   onComplete: (result: ArcadeCompleteResult) => void;
 }
 
-const FALLBACK_ARCADE_GAMES: ArcadeCatalogItem[] = [
-  {
-    type: "match_three",
-    title: "消消乐",
-    description: "用她喜欢的小物件连成三消。",
-    reward: 12,
-    durationHint: "2-3 分钟",
-  },
-  {
-    type: "memory_match",
-    title: "记忆翻牌",
-    description: "翻出配对的小记忆。",
-    reward: 8,
-    durationHint: "1 分钟",
-  },
-  {
-    type: "photo_puzzle",
-    title: "拼图相册",
-    description: "把她的照片拼回来。",
-    reward: 10,
-    durationHint: "1-2 分钟",
-  },
+const FALLBACK_ARCADE_GAME_TYPES: ArcadeGameType[] = [
+  "match_three",
+  "memory_match",
+  "photo_puzzle",
 ];
 
 const MATCH_SIZE = 6;
 const PUZZLE_SIZE = 3;
 const MATCH_SYMBOLS = ["☕", "📚", "🌸", "🎵", "⭐", "💌"];
-const MEMORY_SYMBOLS = ["咖啡", "书页", "花", "音符", "星星", "信"];
+const MEMORY_SYMBOLS: Record<Locale, string[]> = {
+  zh: ["咖啡", "书页", "花", "音符", "星星", "信"],
+  en: ["Coffee", "Page", "Flower", "Note", "Star", "Letter"],
+  ja: ["珈琲", "本", "花", "音符", "星", "手紙"],
+};
 const EMPTY_TILE = PUZZLE_SIZE * PUZZLE_SIZE - 1;
 
 const GAME_ICONS: Record<ArcadeGameType, typeof Grid3X3> = {
@@ -209,8 +195,8 @@ function swapItems<T>(items: T[], first: number, second: number) {
   return next;
 }
 
-function createMemoryCards() {
-  return shuffle([...MEMORY_SYMBOLS, ...MEMORY_SYMBOLS]).map((symbol, index) => ({
+function createMemoryCards(symbols: string[] = MEMORY_SYMBOLS.zh) {
+  return shuffle([...symbols, ...symbols]).map((symbol, index) => ({
     id: `${symbol}-${index}-${Math.random().toString(36).slice(2)}`,
     symbol,
     matched: false,
@@ -248,7 +234,19 @@ export function ArcadeGames({
   arcadeGames,
   onComplete,
 }: ArcadeGamesProps) {
-  const games = arcadeGames.length > 0 ? arcadeGames : FALLBACK_ARCADE_GAMES;
+  const fallbackGames = useMemo<ArcadeCatalogItem[]>(
+    () =>
+      FALLBACK_ARCADE_GAME_TYPES.map((type) => ({
+        type,
+        title: t(`games.arcade.${type}.title`),
+        description: t(`games.arcade.${type}.description`),
+        reward: type === "match_three" ? 12 : type === "memory_match" ? 8 : 10,
+        durationHint: t(`games.arcade.${type}.duration`),
+      })),
+    [t]
+  );
+  const games = arcadeGames.length > 0 ? arcadeGames : fallbackGames;
+  const memorySymbols = useMemo(() => MEMORY_SYMBOLS[locale], [locale]);
   const [activeGame, setActiveGame] = useState<ArcadeGameType>(games[0]?.type || "match_three");
   const [rewarding, setRewarding] = useState<ArcadeGameType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +257,7 @@ export function ArcadeGames({
   const [matchScore, setMatchScore] = useState(0);
   const [matchDone, setMatchDone] = useState(false);
 
-  const [memoryCards, setMemoryCards] = useState(createMemoryCards);
+  const [memoryCards, setMemoryCards] = useState(() => createMemoryCards(memorySymbols));
   const [firstCard, setFirstCard] = useState<string | null>(null);
   const [memoryMoves, setMemoryMoves] = useState(0);
   const [memoryLocked, setMemoryLocked] = useState(false);
@@ -273,6 +271,17 @@ export function ArcadeGames({
     () => games.find((game) => game.type === activeGame) || games[0],
     [activeGame, games]
   );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMemoryCards(createMemoryCards(memorySymbols));
+      setFirstCard(null);
+      setMemoryMoves(0);
+      setMemoryLocked(false);
+      setMemoryDone(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [memorySymbols]);
 
   const completeArcade = async (gameType: ArcadeGameType, score: number, stars: number) => {
     if (rewarding) return;
@@ -304,7 +313,7 @@ export function ArcadeGames({
   };
 
   const resetMemoryMatch = () => {
-    setMemoryCards(createMemoryCards());
+    setMemoryCards(createMemoryCards(memorySymbols));
     setFirstCard(null);
     setMemoryMoves(0);
     setMemoryLocked(false);
@@ -509,7 +518,7 @@ export function ArcadeGames({
           ))}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-muted">{matchedPairs}/{MEMORY_SYMBOLS.length}</p>
+          <p className="text-[11px] text-muted">{matchedPairs}/{memorySymbols.length}</p>
           <button onClick={resetMemoryMatch} className="p-2 rounded-lg bg-card-bg border border-card-border hover:border-primary/50" title={t("games.restart")}>
             <RotateCcw size={14} />
           </button>

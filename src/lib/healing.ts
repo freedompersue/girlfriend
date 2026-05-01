@@ -95,6 +95,112 @@ const INITIAL_MESSAGES: Record<HealingMode, string> = {
   companion: "我们可以一起待一会儿。你做你的事，我在旁边。",
 };
 
+const HEALING_MODE_LOCALES: Record<
+  HealingMode,
+  Record<Locale, Omit<HealingModeInfo, "mode"> & { initialMessage: string }>
+> = {
+  mirror: {
+    zh: {
+      title: "被看见",
+      description: "她会慢一点听你说，只做镜映和陪伴，不急着建议。",
+      durationHint: "5-15 分钟",
+      initialMessage: INITIAL_MESSAGES.mirror,
+    },
+    en: {
+      title: "Being Seen",
+      description: "She listens slowly, reflecting and staying with you without rushing into advice.",
+      durationHint: "5-15 min",
+      initialMessage: "I am here. We do not have to make sense of everything yet. You can start with the heaviest part.",
+    },
+    ja: {
+      title: "見てもらう",
+      description: "彼女はゆっくり聞き、急いで助言せず、映し返しと寄り添いだけをします。",
+      durationHint: "5〜15分",
+      initialMessage: "ここにいます。急いで整理しなくて大丈夫。まず一番重いところから話していいよ。",
+    },
+  },
+  anchor: {
+    zh: {
+      title: "她在这里",
+      description: "低任务负载的稳定锚点。你可以什么都不说，只和她待一会儿。",
+      durationHint: "5 / 15 / 30 分钟",
+      initialMessage: INITIAL_MESSAGES.anchor,
+    },
+    en: {
+      title: "She Is Here",
+      description: "A low-effort anchor. You can say nothing and simply stay with her for a while.",
+      durationHint: "5 / 15 / 30 min",
+      initialMessage: "You do not have to perform. Sit down first. I will stay here quietly.",
+    },
+    ja: {
+      title: "彼女はここに",
+      description: "負担の少ない安定のアンカー。何も言わず、ただ一緒にいても大丈夫です。",
+      durationHint: "5 / 15 / 30分",
+      initialMessage: "うまく振る舞わなくて大丈夫。まず座って。静かにそばにいます。",
+    },
+  },
+  breath: {
+    zh: {
+      title: "一起呼吸",
+      description: "跟着 4-7-8 的节奏，把身体先安顿下来。",
+      durationHint: "约 2 分钟",
+      initialMessage: INITIAL_MESSAGES.breath,
+    },
+    en: {
+      title: "Breathe Together",
+      description: "Follow a 4-7-8 rhythm and let your body settle first.",
+      durationHint: "About 2 min",
+      initialMessage: "We will not handle every problem right now. We only handle the next breath.",
+    },
+    ja: {
+      title: "一緒に呼吸",
+      description: "4-7-8 のリズムに合わせて、まず身体を落ち着かせます。",
+      durationHint: "約2分",
+      initialMessage: "すべての問題を今扱わなくていい。次の呼吸だけを見ましょう。",
+    },
+  },
+  grounding: {
+    zh: {
+      title: "安顿下来",
+      description: "用 5-4-3-2-1 grounding 把注意力带回此刻。",
+      durationHint: "3-5 分钟",
+      initialMessage: INITIAL_MESSAGES.grounding,
+    },
+    en: {
+      title: "Grounding",
+      description: "Use 5-4-3-2-1 grounding to bring attention back to the present.",
+      durationHint: "3-5 min",
+      initialMessage: "Bring attention back to now. This is not avoidance; it is landing first.",
+    },
+    ja: {
+      title: "落ち着く",
+      description: "5-4-3-2-1 グラウンディングで注意を今ここへ戻します。",
+      durationHint: "3〜5分",
+      initialMessage: "注意を今に戻しましょう。逃げるのではなく、まず足を地につけるためです。",
+    },
+  },
+  companion: {
+    zh: {
+      title: "平行陪伴",
+      description: "一起专注、休息或沉默，不需要一直说话。",
+      durationHint: "10-25 分钟",
+      initialMessage: INITIAL_MESSAGES.companion,
+    },
+    en: {
+      title: "Quiet Companion",
+      description: "Focus, rest, or sit in silence together. You do not have to keep talking.",
+      durationHint: "10-25 min",
+      initialMessage: "We can stay together for a while. You do your thing; I will be nearby.",
+    },
+    ja: {
+      title: "並んで過ごす",
+      description: "集中、休憩、沈黙を一緒に。ずっと話していなくても大丈夫です。",
+      durationHint: "10〜25分",
+      initialMessage: "少し一緒にいましょう。あなたはあなたのことをしていていい。そばにいます。",
+    },
+  },
+};
+
 function healingKey(characterId: string) {
   return `${HEALING_KEY_PREFIX}${characterId}`;
 }
@@ -161,6 +267,39 @@ function getModeInfo(mode: HealingMode) {
   return HEALING_MODES.find((item) => item.mode === mode) || HEALING_MODES[0];
 }
 
+function getLocalizedModeInfo(mode: HealingMode, locale: Locale): HealingModeInfo {
+  const fallback = getModeInfo(mode);
+  const copy = HEALING_MODE_LOCALES[mode]?.[locale] || HEALING_MODE_LOCALES[mode]?.zh;
+  return {
+    mode,
+    title: copy?.title || fallback.title,
+    description: copy?.description || fallback.description,
+    durationHint: copy?.durationHint || fallback.durationHint,
+  };
+}
+
+function getInitialMessage(mode: HealingMode, locale: Locale) {
+  return HEALING_MODE_LOCALES[mode]?.[locale]?.initialMessage || INITIAL_MESSAGES[mode];
+}
+
+function localizeHealingSession(session: HealingSession, locale: Locale): HealingSession {
+  const initialMessages = new Set([
+    ...Object.values(INITIAL_MESSAGES),
+    ...Object.values(HEALING_MODE_LOCALES).flatMap((copies) =>
+      Object.values(copies).map((copy) => copy.initialMessage)
+    ),
+  ]);
+  return {
+    ...session,
+    title: getLocalizedModeInfo(session.mode, locale).title,
+    transcript: session.transcript.map((message, index) =>
+      index === 0 && message.role === "assistant" && initialMessages.has(message.content)
+        ? { ...message, content: getInitialMessage(session.mode, locale) }
+        : message
+    ),
+  };
+}
+
 export function canAccessHealing(plan: PlanType) {
   return plan === "pro" || HEALING_TRIAL_OPEN;
 }
@@ -176,7 +315,28 @@ export function getCrisisReply(locale: Locale) {
   if (locale === "ja") {
     return "今だけロールプレイを外します。もし自分を傷つける可能性がある、または差し迫った危険があるなら、今すぐ地域の緊急窓口に連絡し、危険な物から離れて、近くの信頼できる人に連絡してください。ひとりで抱えなくて大丈夫です。できれば「安全」か「危険」だけ返してください。";
   }
-  return "我先暂时跳出角色身份。もし你此刻可能伤害自己，或已经处在危险里，请现在就联系当地急救/报警电话，离开可能用来伤害自己的东西，并联系身边可信任的人。你不需要一个人扛过去。如果可以，你只回我两个字也行：安全，或危险。";
+  return "我先暂时跳出角色身份。如果你此刻可能伤害自己，或已经处在危险里，请现在就联系当地急救/报警电话，离开可能用来伤害自己的东西，并联系身边可信任的人。你不需要一个人扛过去。如果可以，你只回我两个字也行：安全，或危险。";
+}
+
+function getMirrorFallback(locale: Locale, variant: "no_key" | "empty" | "error") {
+  const copy = {
+    no_key: {
+      zh: "我听见了。你说的不是一个轻飘飘的难受，而像是整个人都被压住了。我们先不急着变好，你可以再告诉我，最重的那一下在哪里吗？",
+      en: "I hear you. This does not sound like a light sadness; it sounds like something pressing on your whole body. We do not have to get better right away. Can you tell me where it feels heaviest?",
+      ja: "聞いています。それは軽いしんどさではなく、身体ごと押しつぶされるような重さに聞こえます。急いで元気にならなくて大丈夫。一番重いところを少し教えてくれますか？",
+    },
+    empty: {
+      zh: "我在听。你刚才那句话里，好像有一部分很想被看见。我们慢一点，把它说清楚。",
+      en: "I am listening. In what you just said, there seems to be a part that really wants to be seen. Let us go slowly and give it words.",
+      ja: "聞いています。今の言葉の中に、見てもらいたい部分があるように感じます。ゆっくり言葉にしていきましょう。",
+    },
+    error: {
+      zh: "我在。刚才那句话听起来很重，我们先不分析，也不急着解决。你可以只说一个词，告诉我它现在像什么。",
+      en: "I am here. What you said sounds heavy. We do not need to analyze or fix it yet. You can answer with one word: what does it feel like right now?",
+      ja: "ここにいます。今の言葉はとても重く聞こえます。まだ分析も解決もしなくていい。今それが何に似ているか、一語だけでも教えてください。",
+    },
+  } satisfies Record<typeof variant, Record<Locale, string>>;
+  return copy[variant][locale] || copy[variant].zh;
 }
 
 function stripThink(text: string) {
@@ -218,9 +378,7 @@ async function generateMirrorReply(args: {
   transcript: HealingMessage[];
   userMessage: string;
 }) {
-  if (!process.env.OPENROUTER_API_KEY) {
-    return "我听见了。你说的不是一个轻飘飘的难受，而像是整个人都被压住了。我们先不急着变好，你可以再告诉我，最重的那一下在哪里吗？";
-  }
+  if (!process.env.OPENROUTER_API_KEY) return getMirrorFallback(args.locale, "no_key");
 
   try {
     const profile = await getUserProfileString(args.userId);
@@ -240,10 +398,10 @@ async function generateMirrorReply(args: {
     });
 
     const text = stripThink(response.choices[0]?.message?.content || "");
-    return text || "我在听。你刚才那句话里，好像有一部分很想被看见。我们慢一点，把它说清楚。";
+    return text || getMirrorFallback(args.locale, "empty");
   } catch (error) {
     console.error("generateMirrorReply failed:", error);
-    return "我在。刚才那句话听起来很重，我们先不分析，也不急着解决。你可以只说一个词，告诉我它现在像什么。";
+    return getMirrorFallback(args.locale, "error");
   }
 }
 
@@ -274,6 +432,7 @@ export async function getHealingOverview(args: {
   userId: string;
   characterId: string;
   plan: PlanType;
+  locale: Locale;
 }) {
   const state = await loadHealingState(args.userId, args.characterId);
   await saveHealingState(args.userId, args.characterId, state);
@@ -289,9 +448,9 @@ export async function getHealingOverview(args: {
       reason: allowed ? null : "HEALING_PRO_ONLY",
     },
     noticeAccepted: state.noticeAccepted,
-    modes: HEALING_MODES,
-    currentSession,
-    sessions: state.sessions,
+    modes: HEALING_MODES.map((mode) => getLocalizedModeInfo(mode.mode, args.locale)),
+    currentSession: currentSession ? localizeHealingSession(currentSession, args.locale) : null,
+    sessions: state.sessions.map((session) => localizeHealingSession(session, args.locale)),
     stats: buildStats(state.sessions),
   };
 }
@@ -307,10 +466,11 @@ export async function startHealingSession(args: {
   userId: string;
   characterId: string;
   mode: HealingMode;
+  locale: Locale;
   checkInBefore?: number;
 }) {
   const state = await loadHealingState(args.userId, args.characterId);
-  const modeInfo = getModeInfo(args.mode);
+  const modeInfo = getLocalizedModeInfo(args.mode, args.locale);
   const createdAt = nowIso();
   const session: HealingSession = {
     id: createId("healing"),
@@ -318,7 +478,7 @@ export async function startHealingSession(args: {
     title: modeInfo.title,
     status: "active",
     transcript: [
-      { role: "assistant", content: INITIAL_MESSAGES[modeInfo.mode], createdAt },
+      { role: "assistant", content: getInitialMessage(modeInfo.mode, args.locale), createdAt },
     ],
     checkInBefore: args.checkInBefore,
     createdAt,

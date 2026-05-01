@@ -1,8 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getMilestones } from "@/lib/milestone";
+import type { Locale } from "@/lib/i18n";
 
-export async function GET() {
+function normalizeLocale(value: unknown): Locale {
+  return value === "en" || value === "ja" || value === "zh" ? value : "zh";
+}
+
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -11,6 +16,12 @@ export async function GET() {
     return NextResponse.json({ error: "未选择角色" }, { status: 400 });
   }
 
-  const milestones = await getMilestones(user.id, user.selectedCharacterId);
+  const locale = normalizeLocale(new URL(req.url).searchParams.get("locale"));
+  const milestones = await getMilestones(
+    user.id,
+    user.selectedCharacterId,
+    locale,
+    user.selectedCharacter?.name
+  );
   return NextResponse.json({ milestones });
 }

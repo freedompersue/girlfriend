@@ -51,12 +51,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const locale = normalizeLocale(new URL(req.url).searchParams.get("locale"));
     const overview = await getEngagementOverview(
       user.id,
       user.selectedCharacterId,
-      user.selectedCharacter.name
+      user.selectedCharacter.name,
+      locale
     );
-    return NextResponse.json({ ...overview, locale: normalizeLocale(new URL(req.url).searchParams.get("locale")) });
+    return NextResponse.json({ ...overview, locale });
   } catch (error) {
     console.error("[games GET error]", error);
     return NextResponse.json({ error: "互动数据暂时不可用" }, { status: 500 });
@@ -81,6 +83,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         character: user.selectedCharacter,
         gameType,
+        locale,
       });
       return NextResponse.json({
         session: result.session,
@@ -142,6 +145,7 @@ export async function POST(req: NextRequest) {
         characterId: user.selectedCharacterId,
         characterName: user.selectedCharacter.name,
         sessionId,
+        locale,
       });
       return NextResponse.json({ overview });
     }
@@ -159,6 +163,7 @@ export async function POST(req: NextRequest) {
         gameType,
         score: Number(body.score || 0),
         stars: Number(body.stars || 1),
+        locale,
       });
 
       return NextResponse.json({

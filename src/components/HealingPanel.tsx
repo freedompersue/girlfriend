@@ -83,14 +83,6 @@ const MODE_ACCENTS: Record<HealingMode, string> = {
   companion: "border-violet-400/40 bg-violet-500/10",
 };
 
-const ANCHOR_PHRASES = ["我在这里。", "不用证明什么。", "慢慢来。", "你可以先只是呼吸。"];
-const BREATH_STEPS = [
-  { label: "吸气", seconds: 4 },
-  { label: "停住", seconds: 7 },
-  { label: "呼气", seconds: 8 },
-];
-const GROUNDING_STEPS = ["看到的 5 样东西", "听到的 4 种声音", "触碰到的 3 种感觉", "闻到的 2 种气味", "能尝到的 1 种味道"];
-
 export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingPanelProps) {
   const [overview, setOverview] = useState<HealingOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,12 +98,39 @@ export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingP
   const [groundingDone, setGroundingDone] = useState<string[]>([]);
 
   const currentSession = overview?.currentSession || null;
+  const anchorPhrases = useMemo(
+    () => [
+      t("healing.anchor_phrase_1"),
+      t("healing.anchor_phrase_2"),
+      t("healing.anchor_phrase_3"),
+      t("healing.anchor_phrase_4"),
+    ],
+    [t]
+  );
+  const breathSteps = useMemo(
+    () => [
+      { label: t("healing.breath_inhale"), seconds: 4 },
+      { label: t("healing.breath_hold"), seconds: 7 },
+      { label: t("healing.breath_exhale"), seconds: 8 },
+    ],
+    [t]
+  );
+  const groundingSteps = useMemo(
+    () => [
+      t("healing.grounding_5"),
+      t("healing.grounding_4"),
+      t("healing.grounding_3"),
+      t("healing.grounding_2"),
+      t("healing.grounding_1"),
+    ],
+    [t]
+  );
 
   const fetchOverview = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/healing");
+      const res = await fetch(`/api/healing?locale=${locale}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("healing.load_failed"));
       setOverview(data);
@@ -120,7 +139,7 @@ export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingP
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [locale, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -145,8 +164,8 @@ export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingP
 
   const anchorPhrase = useMemo(() => {
     const minute = Math.floor(timerSeconds / 60);
-    return ANCHOR_PHRASES[minute % ANCHOR_PHRASES.length];
-  }, [timerSeconds]);
+    return anchorPhrases[minute % anchorPhrases.length];
+  }, [anchorPhrases, timerSeconds]);
 
   const acceptNotice = async () => {
     setError(null);
@@ -342,8 +361,8 @@ export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingP
   );
 
   const renderBreathSession = () => {
-    const step = BREATH_STEPS[breathIndex % BREATH_STEPS.length];
-    const round = Math.floor(breathIndex / BREATH_STEPS.length) + 1;
+    const step = breathSteps[breathIndex % breathSteps.length];
+    const round = Math.floor(breathIndex / breathSteps.length) + 1;
     return (
       <div className="text-center space-y-4">
         <div className="mx-auto w-32 h-32 rounded-full bg-cyan-500/10 border border-cyan-400/40 flex flex-col items-center justify-center">
@@ -360,7 +379,7 @@ export function HealingPanel({ charName, locale, t, onClose, onToast }: HealingP
 
   const renderGroundingSession = () => (
     <div className="space-y-2">
-      {GROUNDING_STEPS.map((step) => {
+      {groundingSteps.map((step) => {
         const done = groundingDone.includes(step);
         return (
           <button

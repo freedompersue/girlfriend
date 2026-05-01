@@ -44,15 +44,17 @@ async function getAuthedHealingContext() {
   return { user, plan };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const context = await getAuthedHealingContext();
   if (context.error) return context.error;
 
   try {
+    const locale = normalizeLocale(new URL(req.url).searchParams.get("locale"));
     const overview = await getHealingOverview({
       userId: context.user.id,
       characterId: context.user.selectedCharacterId!,
       plan: context.plan,
+      locale,
     });
     return NextResponse.json(overview);
   } catch (error) {
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
         userId: context.user.id,
         characterId: context.user.selectedCharacterId!,
         mode,
+        locale,
         checkInBefore: normalizeRating(body.checkInBefore),
       });
       return NextResponse.json({ session });

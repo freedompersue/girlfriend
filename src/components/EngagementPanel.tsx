@@ -115,6 +115,22 @@ const GAME_ICONS: Record<GameCatalogItem["type"], typeof MessageCircleQuestion> 
   story_chain: PenLine,
 };
 
+const DATE_LOCALES: Record<Locale, string> = {
+  zh: "zh-CN",
+  en: "en-US",
+  ja: "ja-JP",
+};
+
+function getLocalizedLevelName(
+  levelInfo: { name: string; nameEn?: string; nameJa?: string } | null | undefined,
+  locale: Locale
+) {
+  if (!levelInfo) return "";
+  if (locale === "en") return levelInfo.nameEn || levelInfo.name;
+  if (locale === "ja") return levelInfo.nameJa || levelInfo.name;
+  return levelInfo.name;
+}
+
 export function EngagementPanel({
   charName,
   charAvatarUrl,
@@ -162,6 +178,7 @@ export function EngagementPanel({
     () => overview?.tasks.filter((task) => task.completed).length || 0,
     [overview?.tasks]
   );
+  const dateLocale = DATE_LOCALES[locale];
 
   const startGame = async (gameType: GameCatalogItem["type"]) => {
     if (starting) return;
@@ -214,7 +231,7 @@ export function EngagementPanel({
       if (newMessages.length > 0) onAppendMessages(newMessages);
       if (data.affinity) {
         onAffinityUpdate(data.affinity);
-        if (data.levelUp) onLevelUp(data.affinity.levelInfo.name);
+        if (data.levelUp) onLevelUp(getLocalizedLevelName(data.affinity.levelInfo, locale));
       }
       if (data.completedTasks?.length > 0) {
         const task = data.completedTasks[0] as DailyTask;
@@ -265,7 +282,7 @@ export function EngagementPanel({
     if (data.message) onAppendMessages([data.message]);
     if (data.affinity) {
       onAffinityUpdate(data.affinity);
-      if (data.levelUp) onLevelUp(data.affinity.levelInfo.name);
+      if (data.levelUp) onLevelUp(getLocalizedLevelName(data.affinity.levelInfo, locale));
     }
     if (data.overview) setOverview(data.overview as EngagementOverview);
 
@@ -448,7 +465,7 @@ export function EngagementPanel({
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <p className="text-xs font-medium truncate">{moment.title}</p>
                       <span className="text-[10px] text-muted shrink-0">
-                        {new Date(moment.createdAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+                        {new Date(moment.createdAt).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted leading-relaxed">“{moment.quote}”</p>

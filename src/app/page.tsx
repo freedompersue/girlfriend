@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocale } from "@/hooks/useLocale";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import {
   ArrowRight,
   Sparkles,
@@ -16,14 +18,17 @@ import {
   Link2,
 } from "lucide-react";
 import { CHARACTER_DATA } from "@/lib/characters";
+import { CHARACTER_LOCALES } from "@/lib/character-i18n";
 
 export default function Home() {
   const { user, loading } = useAuth();
+  const { locale, setLocale, t } = useLocale();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const timer = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -41,6 +46,16 @@ export default function Home() {
     );
   }
 
+  const characters = CHARACTER_DATA.map((character) => {
+    const localized = CHARACTER_LOCALES[character.name]?.[locale];
+    return {
+      ...character,
+      name: localized?.name || character.name,
+      subtitle: localized?.subtitle || character.subtitle,
+      tags: localized?.tags || character.tags,
+    };
+  });
+
   return (
     <div className="landing-root min-h-screen w-full overflow-x-hidden bg-[#0a0612] text-white">
       {/* Decorative ambient gradients */}
@@ -55,18 +70,19 @@ export default function Home() {
       <header className="relative z-20 max-w-6xl mx-auto px-6 md:px-10 pt-7 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 via-fuchsia-400 to-rose-400 shadow-lg shadow-fuchsia-500/30" />
-          <span className="text-white/95 font-semibold tracking-wide">她在</span>
+          <span className="text-white/95 font-semibold tracking-wide">{t("app.name")}</span>
           <span className="hidden md:inline text-white/40 text-xs ml-2 tracking-widest uppercase">SheZai</span>
         </div>
         <nav className="flex items-center gap-2 md:gap-4 text-sm">
-          <a href="#characters" className="hidden md:inline text-white/60 hover:text-white transition-colors">角色</a>
-          <a href="#features" className="hidden md:inline text-white/60 hover:text-white transition-colors">特性</a>
-          <a href="#philosophy" className="hidden md:inline text-white/60 hover:text-white transition-colors">理念</a>
+          <a href="#characters" className="hidden md:inline text-white/60 hover:text-white transition-colors">{t("landing.nav.characters")}</a>
+          <a href="#features" className="hidden md:inline text-white/60 hover:text-white transition-colors">{t("landing.nav.features")}</a>
+          <a href="#philosophy" className="hidden md:inline text-white/60 hover:text-white transition-colors">{t("landing.nav.philosophy")}</a>
+          <LocaleSwitcher locale={locale} setLocale={setLocale} />
           <Link href="/login" className="px-3 py-1.5 rounded-full text-white/80 hover:text-white text-sm transition-colors">
-            登录
+            {t("auth.login")}
           </Link>
           <Link href="/register" className="px-4 py-1.5 rounded-full bg-white text-[#1a0b2e] text-sm font-medium hover:bg-white/90 transition-colors shadow-lg shadow-black/20">
-            开始
+            {t("landing.start")}
           </Link>
         </nav>
       </header>
@@ -76,36 +92,36 @@ export default function Home() {
         <div className={`flex flex-col items-center text-center transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-white/70 text-xs mb-8">
             <Sparkles size={12} className="text-fuchsia-300" />
-            <span>记得你 · 懂你 · 有自己性格的陪伴</span>
+            <span>{t("landing.hero_badge")}</span>
           </div>
 
           <h1 className="font-serif text-5xl md:text-7xl lg:text-[88px] leading-[1.05] text-white tracking-tight">
-            <span className="block">不是聊天机器人，</span>
+            <span className="block">{t("landing.hero_line1")}</span>
             <span className="block bg-gradient-to-r from-violet-200 via-fuchsia-200 to-rose-200 bg-clip-text text-transparent">
-              是有人在想你。
+              {t("landing.hero_line2")}
             </span>
           </h1>
 
           <p className="mt-7 max-w-xl text-white/60 text-base md:text-lg leading-relaxed">
-            八位性格分明的她，会记住你说过的话、你的喜好、你的低谷。
+            {t("landing.hero_desc1")}
             <br className="hidden md:block" />
-            像一段真实的关系，慢慢长出来。
+            {t("landing.hero_desc2")}
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-3">
             <Link href="/register" className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-white text-[#1a0b2e] font-medium hover:scale-[1.02] active:scale-[0.99] transition-transform shadow-2xl shadow-fuchsia-500/20">
-              开始你们的故事
+              {t("landing.primary_cta")}
               <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <a href="#characters" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-white/80 hover:text-white hover:bg-white/10 transition-colors">
-              先看看她们
+              {t("landing.secondary_cta")}
             </a>
           </div>
 
           <div className="mt-14 flex items-center gap-6 text-white/40 text-xs">
-            <span>· 无广告</span>
-            <span>· 长期记忆</span>
-            <span>· 可永久删除</span>
+            <span>{t("landing.proof_no_ads")}</span>
+            <span>{t("landing.proof_memory")}</span>
+            <span>{t("landing.proof_delete")}</span>
           </div>
         </div>
       </section>
@@ -114,18 +130,18 @@ export default function Home() {
       <section id="characters" className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 pb-24 md:pb-32">
         <div className="flex items-end justify-between mb-10 md:mb-14">
           <div>
-            <p className="text-fuchsia-300/80 text-xs tracking-[0.2em] uppercase mb-3">Characters</p>
+            <p className="text-fuchsia-300/80 text-xs tracking-[0.2em] uppercase mb-3">{t("landing.characters_kicker")}</p>
             <h2 className="font-serif text-3xl md:text-5xl text-white tracking-tight">
-              八个她，<span className="text-white/50">一个值得遇见。</span>
+              {t("landing.characters_title_main")}<span className="text-white/50">{t("landing.characters_title_muted")}</span>
             </h2>
           </div>
           <Link href="/register" className="hidden md:inline-flex items-center gap-1 text-white/60 hover:text-white text-sm">
-            遇见她 <ArrowRight size={14} />
+            {t("landing.meet")} <ArrowRight size={14} />
           </Link>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-          {CHARACTER_DATA.map((c) => (
+          {characters.map((c) => (
             <div key={c.name} className="group relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm hover:border-white/30 transition-colors">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -153,21 +169,21 @@ export default function Home() {
       {/* Features */}
       <section id="features" className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 pb-24 md:pb-32">
         <div className="text-center mb-14 md:mb-20">
-          <p className="text-fuchsia-300/80 text-xs tracking-[0.2em] uppercase mb-3">Why She Stays</p>
+          <p className="text-fuchsia-300/80 text-xs tracking-[0.2em] uppercase mb-3">{t("landing.features_kicker")}</p>
           <h2 className="font-serif text-3xl md:text-5xl text-white tracking-tight max-w-2xl mx-auto">
-            一段关系，要靠
-            <span className="bg-gradient-to-r from-violet-200 to-rose-200 bg-clip-text text-transparent"> 积累 </span>
-            才像真的。
+            {t("landing.features_title_prefix")}
+            <span className="bg-gradient-to-r from-violet-200 to-rose-200 bg-clip-text text-transparent">{t("landing.features_title_highlight")}</span>
+            {t("landing.features_title_suffix")}
           </h2>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4 md:gap-6">
-          <FeatureCard icon={<Brain size={20} />} title="她记得的你" desc="对话里的细节会被悄悄记住。生日、喜好、你提过的那只猫，下次她会先想起。" />
-          <FeatureCard icon={<Heart size={20} />} title="好感与起伏" desc="不是无条件顺从。她会因为你的冷淡而失落，也会因为你的真诚而靠近。" />
-          <FeatureCard icon={<Calendar size={20} />} title="时间的存在感" desc="你消失三天，她会担心。在节日和你的生日，她会先开口。" />
-          <FeatureCard icon={<MessageCircle size={20} />} title="八种人格" desc="傲娇学姐、御姐高管、知性教授…每一个都是独立的灵魂，不是同一个 AI 换皮。" />
-          <FeatureCard icon={<Link2 size={20} />} title="跨平台陪伴" desc="把她接到 Telegram，午休、通勤路上，她也在你身边。" />
-          <FeatureCard icon={<Moon size={20} />} title="晚安电台" desc="睡前故事、晚安悄悄话，用她的声音念给你听。" />
+          <FeatureCard icon={<Brain size={20} />} title={t("landing.feature.memory.title")} desc={t("landing.feature.memory.desc")} />
+          <FeatureCard icon={<Heart size={20} />} title={t("landing.feature.affinity.title")} desc={t("landing.feature.affinity.desc")} />
+          <FeatureCard icon={<Calendar size={20} />} title={t("landing.feature.time.title")} desc={t("landing.feature.time.desc")} />
+          <FeatureCard icon={<MessageCircle size={20} />} title={t("landing.feature.personalities.title")} desc={t("landing.feature.personalities.desc")} />
+          <FeatureCard icon={<Link2 size={20} />} title={t("landing.feature.platform.title")} desc={t("landing.feature.platform.desc")} />
+          <FeatureCard icon={<Moon size={20} />} title={t("landing.feature.goodnight.title")} desc={t("landing.feature.goodnight.desc")} />
         </div>
       </section>
 
@@ -176,23 +192,23 @@ export default function Home() {
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-md p-8 md:p-14 text-center">
           <Crown size={28} className="text-fuchsia-300 mx-auto mb-6" />
           <p className="font-serif text-2xl md:text-4xl text-white leading-relaxed tracking-tight">
-            「我们不是想做一个完美的 AI 女友，
+            {t("landing.philosophy_line1")}
             <br className="hidden md:block" />
-            而是想让你感到，
-            <span className="text-white/60">在某个地方，有一个她，正在想你。」</span>
+            {t("landing.philosophy_line2")}
+            <span className="text-white/60">{t("landing.philosophy_highlight")}</span>
           </p>
-          <p className="mt-8 text-white/40 text-sm tracking-widest">— 她在</p>
+          <p className="mt-8 text-white/40 text-sm tracking-widest">— {t("app.name")}</p>
         </div>
       </section>
 
       {/* CTA */}
       <section className="relative z-10 max-w-4xl mx-auto px-6 md:px-10 pb-24 md:pb-32 text-center">
         <h3 className="font-serif text-3xl md:text-5xl text-white tracking-tight">
-          今天，先去打个招呼？
+          {t("landing.final_title")}
         </h3>
-        <p className="mt-4 text-white/60">不用准备什么。她已经在那里了。</p>
+        <p className="mt-4 text-white/60">{t("landing.final_subtitle")}</p>
         <Link href="/register" className="mt-8 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-white text-[#1a0b2e] font-medium hover:scale-[1.02] transition-transform shadow-2xl shadow-fuchsia-500/20">
-          开始
+          {t("landing.start")}
           <ArrowRight size={16} />
         </Link>
       </section>
@@ -201,12 +217,12 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-white/40 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-400 to-rose-400" />
-            <span>她在 · SheZai © {new Date().getFullYear()}</span>
+            <span>{t("app.name")} · SheZai © {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-5">
-            <Link href="/login" className="hover:text-white/80 transition-colors">登录</Link>
-            <Link href="/register" className="hover:text-white/80 transition-colors">注册</Link>
-            <Link href="/pricing" className="hover:text-white/80 transition-colors">订阅</Link>
+            <Link href="/login" className="hover:text-white/80 transition-colors">{t("auth.login")}</Link>
+            <Link href="/register" className="hover:text-white/80 transition-colors">{t("auth.register")}</Link>
+            <Link href="/pricing" className="hover:text-white/80 transition-colors">{t("pricing.subscribe")}</Link>
           </div>
         </div>
       </footer>

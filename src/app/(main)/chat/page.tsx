@@ -79,10 +79,26 @@ interface MemoryItem {
   key: string;
   value: string;
   updatedAt: string;
-  category: { zh: string; icon: string };
+  category: { zh: string; en: string; ja: string; icon: string };
 }
 
 type PanelType = "affinity" | "notify" | "mood" | "milestone" | "memory" | "goodnight" | "games" | "healing" | null;
+
+const DATE_LOCALES: Record<"zh" | "en" | "ja", string> = {
+  zh: "zh-CN",
+  en: "en-US",
+  ja: "ja-JP",
+};
+
+function getLocalizedLevelName(
+  levelInfo: { name: string; nameEn?: string; nameJa?: string } | null | undefined,
+  locale: "zh" | "en" | "ja"
+) {
+  if (!levelInfo) return "";
+  if (locale === "en") return levelInfo.nameEn || levelInfo.name;
+  if (locale === "ja") return levelInfo.nameJa || levelInfo.name;
+  return levelInfo.name;
+}
 
 export default function ChatPage() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -157,19 +173,19 @@ export default function ChatPage() {
   };
 
   const fetchMood = () => {
-    fetch("/api/mood").then((r) => r.json()).then((d) => {
+    fetch(`/api/mood?locale=${locale}`).then((r) => r.json()).then((d) => {
       if (d.entries) setMoodData(d);
     }).catch(() => {});
   };
 
   const fetchMilestones = () => {
-    fetch("/api/milestones").then((r) => r.json()).then((d) => {
+    fetch(`/api/milestones?locale=${locale}`).then((r) => r.json()).then((d) => {
       if (d.milestones) setMilestones(d.milestones);
     }).catch(() => {});
   };
 
   const fetchMemories = () => {
-    fetch("/api/memories").then((r) => r.json()).then((d) => {
+    fetch(`/api/memories?locale=${locale}`).then((r) => r.json()).then((d) => {
       if (d.memories) setMemories(d.memories);
     }).catch(() => {});
   };
@@ -286,7 +302,7 @@ export default function ChatPage() {
         if (data.affinity) {
           updateAffinity(data.affinity);
           if (data.affinity.levelUp) {
-            setLevelUpToast(data.affinity.levelInfo.name);
+            setLevelUpToast(getLocalizedLevelName(data.affinity.levelInfo, locale));
             setTimeout(() => setLevelUpToast(null), 4000);
           }
         }
@@ -359,7 +375,7 @@ export default function ChatPage() {
         setTimeout(() => setCheckInToast(null), 3000);
         if (data.levelUp) {
           setTimeout(() => {
-            setLevelUpToast(data.levelInfo.name);
+            setLevelUpToast(getLocalizedLevelName(data.levelInfo, locale));
             setTimeout(() => setLevelUpToast(null), 4000);
           }, 1500);
         }
@@ -393,7 +409,7 @@ export default function ChatPage() {
       const res = await fetch("/api/goodnight", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, locale }),
       });
       const data = await res.json();
       if (data.text) {
@@ -426,23 +442,26 @@ export default function ChatPage() {
     );
   }
 
-  const charNameRaw = user?.selectedCharacter?.name || "她";
+  const charNameRaw = user?.selectedCharacter?.name || t("chat.default_character");
   const charLocaleData = (() => {
-    if (!charNameRaw || charNameRaw === "她") return { name: "她", subtitle: "" };
+    if (!charNameRaw || charNameRaw === t("chat.default_character")) {
+      return { name: t("chat.default_character"), subtitle: "" };
+    }
     const loc = CHARACTER_LOCALES[charNameRaw]?.[locale];
     return { name: loc?.name || charNameRaw, subtitle: loc?.subtitle || "" };
   })();
   const charName = charLocaleData.name;
+  const dateLocale = DATE_LOCALES[locale];
+  const moodLabel = (label: string) => {
+    const translated = t(`mood.label.${label}`);
+    return translated === `mood.label.${label}` ? label : translated;
+  };
+  const categoryLabel = (category: MemoryItem["category"]) => category[locale] || category.zh;
 
   const MOOD_COLORS: Record<string, string> = {
     happy: "#22c55e", excited: "#f59e0b", calm: "#3b82f6", loved: "#ec4899",
     sad: "#6366f1", anxious: "#ef4444", tired: "#8b5cf6", angry: "#dc2626",
     neutral: "#9ca3af", lonely: "#64748b",
-  };
-  const MOOD_ZH: Record<string, string> = {
-    happy: "开心", excited: "兴奋", calm: "平静", loved: "被爱",
-    sad: "难过", anxious: "焦虑", tired: "疲惫", angry: "生气",
-    neutral: "一般", lonely: "孤独",
   };
 
   return (
@@ -541,7 +560,7 @@ export default function ChatPage() {
             >
               <CalendarCheck size={14} />
               <span className="hidden sm:inline">
-                {checkedInToday ? (streak > 0 ? `${streak}天` : t("checkin.done")) : t("checkin.btn")}
+                {checkedInToday ? (streak > 0 ? t("checkin.streak_short", { days: String(streak) }) : t("checkin.done")) : t("checkin.btn")}
               </span>
             </button>
 
@@ -617,8 +636,8 @@ export default function ChatPage() {
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">{affinity.levelInfo.icon}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">Lv.{affinity.level} {affinity.levelInfo.name}</p>
-                    <p className="text-xs text-muted">{affinity.score} pts</p>
+                    <p className="text-sm font-medium">Lv.{affinity.level} {getLocalizedLevelName(affinity.levelInfo, locale)}</p>
+                    <p className="text-xs text-muted">{t("affinity.points", { score: String(affinity.score) })}</p>
                   </div>
                 </div>
                 <div className="w-full bg-card-bg rounded-full h-2.5 overflow-hidden">
@@ -626,7 +645,7 @@ export default function ChatPage() {
                 </div>
                 <div className="flex justify-between mt-1.5 text-[10px] text-muted">
                   <span>{t("affinity.progress", { current: String(affinity.progress.current), needed: String(affinity.progress.needed) })}</span>
-                  {affinity.nextLevel ? <span>{t("affinity.next", { name: affinity.nextLevel.name })}</span> : <span>{t("affinity.max")}</span>}
+                  {affinity.nextLevel ? <span>{t("affinity.next", { name: getLocalizedLevelName(affinity.nextLevel, locale) })}</span> : <span>{t("affinity.max")}</span>}
                 </div>
                 {streak > 0 && <p className="text-xs text-muted mt-2">{t("checkin.streak", { days: String(streak) })}</p>}
               </div>
@@ -651,7 +670,7 @@ export default function ChatPage() {
                         <div className="flex items-center gap-2 mb-1">
                           {!n.read && <span className="w-2 h-2 bg-primary rounded-full shrink-0" />}
                           <p className="text-xs font-medium flex-1">{n.title}</p>
-                          <span className="text-[10px] text-muted">{new Date(n.createdAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}</span>
+                          <span className="text-[10px] text-muted">{new Date(n.createdAt).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}</span>
                         </div>
                         <p className="text-xs text-muted/80 line-clamp-2">{n.content}</p>
                       </div>
@@ -679,7 +698,7 @@ export default function ChatPage() {
                       </div>
                       <div className="text-center">
                         <p className="text-lg" style={{ color: MOOD_COLORS[moodData.dominantMood] }}>
-                          {MOOD_ZH[moodData.dominantMood] || moodData.dominantMood}
+                          {moodLabel(moodData.dominantMood)}
                         </p>
                         <p className="text-[10px] text-muted">{t("mood.dominant")}</p>
                       </div>
@@ -688,7 +707,7 @@ export default function ChatPage() {
                     {/* Mini mood chart */}
                     <div className="flex items-end gap-1 h-16 mb-3">
                       {moodData.entries.map((e, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${e.date}: ${MOOD_ZH[e.label] || e.label} (${e.score}/10)`}>
+                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${e.date}: ${moodLabel(e.label)} (${e.score}/10)`}>
                           <div
                             className="w-full rounded-t-sm transition-all"
                             style={{
@@ -705,7 +724,7 @@ export default function ChatPage() {
                         <div key={i} className="flex items-center gap-2 text-xs">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: MOOD_COLORS[e.label] }} />
                           <span className="text-muted w-16">{e.date.slice(5)}</span>
-                          <span className="font-medium">{MOOD_ZH[e.label] || e.label}</span>
+                          <span className="font-medium">{moodLabel(e.label)}</span>
                           <span className="text-muted/60 flex-1 truncate">{e.summary}</span>
                         </div>
                       ))}
@@ -731,7 +750,7 @@ export default function ChatPage() {
                         <div className="absolute -left-[21px] w-3 h-3 bg-primary rounded-full border-2 border-surface" />
                         <p className="text-xs font-semibold">{m.title}</p>
                         <p className="text-[10px] text-muted mt-0.5">{m.content}</p>
-                        <p className="text-[10px] text-muted/50 mt-0.5">{new Date(m.date).toLocaleDateString("zh-CN")}</p>
+                        <p className="text-[10px] text-muted/50 mt-0.5">{new Date(m.date).toLocaleDateString(dateLocale)}</p>
                       </div>
                     ))}
                   </div>
@@ -757,11 +776,11 @@ export default function ChatPage() {
                       <div key={m.id} className="p-2.5 bg-card-bg rounded-lg border border-card-border/50">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-sm">{m.category.icon}</span>
-                          <span className="text-[10px] text-muted">{m.category.zh}</span>
+                          <span className="text-[10px] text-muted">{categoryLabel(m.category)}</span>
                         </div>
                         <p className="text-xs font-medium truncate">{m.value}</p>
                         <p className="text-[10px] text-muted/50 mt-0.5">
-                          {t("memory.updated")} {new Date(m.updatedAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+                          {t("memory.updated")} {new Date(m.updatedAt).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}
                         </p>
                       </div>
                     ))}
@@ -815,7 +834,7 @@ export default function ChatPage() {
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-muted text-center py-2">
-                      {charName}想对你说晚安...
+                      {t("goodnight.prompt", { name: charName })}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {(["whisper", "story", "lullaby"] as const).map((type) => (
@@ -914,11 +933,11 @@ export default function ChatPage() {
                       {loadingTTS === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
                       <span>{t("chat.listen")}</span>
                     </button>
-                    <span className="text-[10px] text-muted/40">{new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-[10px] text-muted/40">{new Date(msg.createdAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 )}
                 {msg.role === "user" && (
-                  <p className="text-[10px] text-muted/40 text-right mt-1 mr-1">{new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className="text-[10px] text-muted/40 text-right mt-1 mr-1">{new Date(msg.createdAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</p>
                 )}
               </div>
             </div>

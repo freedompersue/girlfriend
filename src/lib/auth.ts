@@ -42,7 +42,15 @@ async function getUserById(userId: string) {
   });
 }
 
-export async function getCurrentUser() {
+function getFallbackAuthOrigin() {
+  return (
+    process.env.AUTH_CANONICAL_URL ||
+    process.env.BETTER_AUTH_URL ||
+    "http://localhost:3000"
+  );
+}
+
+export async function getCurrentUser(request?: Request) {
   const cookieStore = await cookies();
 
   const jwtToken = cookieStore.get("token")?.value;
@@ -55,15 +63,32 @@ export async function getCurrentUser() {
   }
 
   try {
-    const headersList = await headers();
+    const headersList = new Headers(request?.headers ?? (await headers()));
+
+    if (!headersList.has("cookie")) {
+      const cookieHeader = cookieStore
+        .getAll()
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join("; ");
+
+      if (cookieHeader) headersList.set("cookie", cookieHeader);
+    }
+
+    if (!headersList.has("host") && !headersList.has("x-forwarded-host")) {
+      const authOrigin = new URL(getFallbackAuthOrigin());
+      headersList.set("host", authOrigin.host);
+      headersList.set("x-forwarded-host", authOrigin.host);
+      headersList.set("x-forwarded-proto", authOrigin.protocol.replace(":", ""));
+    }
+
     const session = await auth.api.getSession({
       headers: headersList,
     });
     if (session?.user?.id) {
       return getUserById(session.user.id);
     }
-  } catch {
-    // BetterAuth session not found
+  } catch (error) {
+    console.error("Better Auth session lookup failed:", error);
   }
 
   return null;

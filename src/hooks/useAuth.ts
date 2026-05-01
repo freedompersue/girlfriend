@@ -21,7 +21,10 @@ export function useAuth() {
 
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -36,7 +39,9 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    fetchUser();
+    void (async () => {
+      await fetchUser();
+    })();
   }, [fetchUser]);
 
   const logout = async () => {

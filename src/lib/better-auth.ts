@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
 import { prisma } from "./prisma";
 
 // ── Env validation ─────────────────────────────────────────────────────────
@@ -7,9 +8,11 @@ import { prisma } from "./prisma";
 // silently using localhost / dev-secret which breaks OAuth callbacks
 // and session cookie verification.
 
+const isDev = process.env.NODE_ENV === "development";
+
 const BETTER_AUTH_URL =
   process.env.BETTER_AUTH_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : undefined);
+  (isDev ? "http://localhost:3000" : undefined);
 
 if (!BETTER_AUTH_URL) {
   throw new Error(
@@ -20,7 +23,7 @@ if (!BETTER_AUTH_URL) {
 
 const AUTH_SECRET =
   process.env.BETTER_AUTH_SECRET ||
-  (process.env.NODE_ENV === "development" ? "dev-secret" : undefined);
+  (isDev ? "dev-secret" : undefined);
 
 if (!AUTH_SECRET) {
   throw new Error(
@@ -38,10 +41,35 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
   );
 }
 
+function getSharedCookieDomain(url: string) {
+  try {
+    const host = new URL(url).hostname;
+    if (host === "dreamgf.online" || host === "www.dreamgf.online") {
+      return ".dreamgf.online";
+    }
+  } catch {
+    return undefined;
+  }
+}
+
+const AUTH_COOKIE_DOMAIN =
+  process.env.AUTH_COOKIE_DOMAIN ||
+  (!isDev && process.env.VERCEL_ENV !== "preview"
+    ? getSharedCookieDomain(BETTER_AUTH_URL)
+    : undefined);
+
+const authBaseURL = isDev
+  ? BETTER_AUTH_URL
+  : {
+      allowedHosts: ["www.dreamgf.online", "dreamgf.online", "*.vercel.app"],
+      fallback: BETTER_AUTH_URL,
+      protocol: "https" as const,
+    };
+
 // ── Auth config ────────────────────────────────────────────────────────────
 
 export const auth = betterAuth({
-  baseURL: BETTER_AUTH_URL,
+  baseURL: authBaseURL,
   secret: AUTH_SECRET,
 
   database: prismaAdapter(prisma, {
@@ -81,6 +109,21 @@ export const auth = betterAuth({
     modelName: "account",
   },
 
+  advanced: {
+    trustedProxyHeaders: true,
+    useSecureCookies: BETTER_AUTH_URL.startsWith("https://"),
+    ...(AUTH_COOKIE_DOMAIN
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: AUTH_COOKIE_DOMAIN,
+          },
+        }
+      : {}),
+  },
+
+  plugins: [nextCookies()],
+
   // Both www and non-www must be listed so cookies are accepted regardless
   // of which variant the user lands on.
   trustedOrigins: [
@@ -89,5 +132,6 @@ export const auth = betterAuth({
     "http://localhost:3002",
     "https://www.dreamgf.online",
     "https://dreamgf.online",
+    "https://*.vercel.app",
   ],
 });

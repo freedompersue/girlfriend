@@ -50,6 +50,41 @@ function getFallbackAuthOrigin() {
   );
 }
 
+export async function getAuthHeaders(request?: Request) {
+  const headersList = new Headers();
+
+  if (request) {
+    request.headers.forEach((value, key) => {
+      headersList.set(key, value);
+    });
+  }
+
+  const nextHeaders = await headers();
+  nextHeaders.forEach((value, key) => {
+    if (!headersList.has(key)) {
+      headersList.set(key, value);
+    }
+  });
+
+  if (!headersList.has("cookie")) {
+    const cookieHeader = (await cookies())
+      .getAll()
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+
+    if (cookieHeader) headersList.set("cookie", cookieHeader);
+  }
+
+  if (!headersList.has("host") && !headersList.has("x-forwarded-host")) {
+    const authOrigin = new URL(getFallbackAuthOrigin());
+    headersList.set("host", authOrigin.host);
+    headersList.set("x-forwarded-host", authOrigin.host);
+    headersList.set("x-forwarded-proto", authOrigin.protocol.replace(":", ""));
+  }
+
+  return headersList;
+}
+
 export async function getCurrentUser(request?: Request) {
   const cookieStore = await cookies();
 
@@ -63,26 +98,8 @@ export async function getCurrentUser(request?: Request) {
   }
 
   try {
-    const headersList = new Headers(request?.headers ?? (await headers()));
-
-    if (!headersList.has("cookie")) {
-      const cookieHeader = cookieStore
-        .getAll()
-        .map((cookie) => `${cookie.name}=${cookie.value}`)
-        .join("; ");
-
-      if (cookieHeader) headersList.set("cookie", cookieHeader);
-    }
-
-    if (!headersList.has("host") && !headersList.has("x-forwarded-host")) {
-      const authOrigin = new URL(getFallbackAuthOrigin());
-      headersList.set("host", authOrigin.host);
-      headersList.set("x-forwarded-host", authOrigin.host);
-      headersList.set("x-forwarded-proto", authOrigin.protocol.replace(":", ""));
-    }
-
     const session = await auth.api.getSession({
-      headers: headersList,
+      headers: await getAuthHeaders(request),
     });
     if (session?.user?.id) {
       return getUserById(session.user.id);

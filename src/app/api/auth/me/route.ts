@@ -11,12 +11,20 @@ export async function GET(request: NextRequest) {
       { error: "未登录" },
       {
         status: 401,
-        headers: { "Cache-Control": "private, no-store" },
+        headers: {
+          "Cache-Control": "private, no-store",
+          Vary: "Cookie",
+        },
       }
     );
   }
   return NextResponse.json(
     { user },
-    { headers: { "Cache-Control": "private, no-store" } }
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie",
+      },
+    }
   );
 }

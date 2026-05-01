@@ -36,7 +36,9 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
   });
 
-  const memories = items.map((item) => ({
+  const visibleItems = items.filter((item) => !item.key.startsWith("__"));
+
+  const memories = visibleItems.map((item) => ({
     id: item.id,
     key: item.key,
     value: item.value,

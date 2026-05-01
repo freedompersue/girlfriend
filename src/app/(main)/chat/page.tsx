@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocale } from "@/hooks/useLocale";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { EngagementPanel } from "@/components/EngagementPanel";
+import { HealingPanel } from "@/components/HealingPanel";
+import { CHARACTER_LOCALES } from "@/lib/character-i18n";
 import {
   Send,
   Volume2,
@@ -25,6 +28,8 @@ import {
   Play,
   Link2,
   Crown,
+  Gamepad2,
+  HeartHandshake,
 } from "lucide-react";
 
 interface Message {
@@ -77,7 +82,7 @@ interface MemoryItem {
   category: { zh: string; icon: string };
 }
 
-type PanelType = "affinity" | "notify" | "mood" | "milestone" | "memory" | "goodnight" | null;
+type PanelType = "affinity" | "notify" | "mood" | "milestone" | "memory" | "goodnight" | "games" | "healing" | null;
 
 export default function ChatPage() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -103,6 +108,9 @@ export default function ChatPage() {
   const [levelUpToast, setLevelUpToast] = useState<string | null>(null);
   const [checkInToast, setCheckInToast] = useState<string | null>(null);
   const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
+  const [gameToast, setGameToast] = useState<string | null>(null);
+  const [healingToast, setHealingToast] = useState<string | null>(null);
+  const [engagementRefresh, setEngagementRefresh] = useState(0);
 
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const [moodData, setMoodData] = useState<{ entries: MoodEntry[]; avgScore: number; dominantMood: string } | null>(null);
@@ -114,6 +122,24 @@ export default function ChatPage() {
   const [billingPlan, setBillingPlan] = useState<string>("free");
   const [msgRemaining, setMsgRemaining] = useState<number>(-1);
   const [msgLimitToast, setMsgLimitToast] = useState(false);
+
+  const updateAffinity = useCallback((next: Partial<AffinityData> | null) => {
+    if (!next) return;
+    setAffinity((prev) => {
+      if (!prev) {
+        return next.score !== undefined && next.level !== undefined && next.levelInfo && next.progress
+          ? next as AffinityData
+          : prev;
+      }
+      return {
+        ...prev,
+        ...next,
+        levelInfo: next.levelInfo || prev.levelInfo,
+        progress: next.progress || prev.progress,
+        nextLevel: next.nextLevel === undefined ? prev.nextLevel : next.nextLevel,
+      };
+    });
+  }, []);
 
   const togglePanel = (panel: PanelType) => {
     if (activePanel === panel) {
@@ -175,7 +201,7 @@ export default function ChatPage() {
 
       fetch("/api/affinity")
         .then((r) => r.json())
-        .then((d) => { if (d.score !== undefined) setAffinity(d); })
+        .then((d) => { if (d.score !== undefined) updateAffinity(d); })
         .catch(() => {});
 
       fetch("/api/checkin")
@@ -202,7 +228,7 @@ export default function ChatPage() {
         })
         .catch(() => {});
     }
-  }, [user, authLoading, router, scrollToBottom]);
+  }, [user, authLoading, router, scrollToBottom, updateAffinity]);
 
   useEffect(() => {
     const container = chatContainerRef.current;
@@ -258,15 +284,22 @@ export default function ChatPage() {
         }
 
         if (data.affinity) {
-          setAffinity((prev) => prev ? {
-            ...prev,
-            score: data.affinity.score,
-            level: data.affinity.level,
-            levelInfo: data.affinity.levelInfo,
-          } : prev);
+          updateAffinity(data.affinity);
           if (data.affinity.levelUp) {
             setLevelUpToast(data.affinity.levelInfo.name);
             setTimeout(() => setLevelUpToast(null), 4000);
+          }
+        }
+
+        if (data.engagement?.completedTasks?.length > 0 || data.engagement?.heartMoment) {
+          setEngagementRefresh((prev) => prev + 1);
+          const completedTask = data.engagement.completedTasks?.[0];
+          if (completedTask) {
+            setGameToast(`${completedTask.title} +${completedTask.reward}`);
+            setTimeout(() => setGameToast(null), 3500);
+          } else if (data.engagement.heartMoment) {
+            setGameToast(t("games.heart_saved"));
+            setTimeout(() => setGameToast(null), 3500);
           }
         }
 
@@ -332,7 +365,7 @@ export default function ChatPage() {
         }
         fetch("/api/affinity")
           .then((r) => r.json())
-          .then((d) => { if (d.score !== undefined) setAffinity(d); })
+          .then((d) => { if (d.score !== undefined) updateAffinity(d); })
           .catch(() => {});
       } else {
         setCheckedInToday(true);
@@ -396,7 +429,6 @@ export default function ChatPage() {
   const charNameRaw = user?.selectedCharacter?.name || "她";
   const charLocaleData = (() => {
     if (!charNameRaw || charNameRaw === "她") return { name: "她", subtitle: "" };
-    const { CHARACTER_LOCALES } = require("@/lib/character-i18n");
     const loc = CHARACTER_LOCALES[charNameRaw]?.[locale];
     return { name: loc?.name || charNameRaw, subtitle: loc?.subtitle || "" };
   })();
@@ -445,6 +477,22 @@ export default function ChatPage() {
               <p className="font-bold text-sm">{t("milestone.new")}</p>
               <p className="text-xs opacity-90">{milestoneToast}</p>
             </div>
+          </div>
+        </div>
+      )}
+      {gameToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-card-bg border border-primary/40 px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+            <Gamepad2 size={16} className="text-primary" />
+            <span className="text-sm font-medium text-foreground">{gameToast}</span>
+          </div>
+        </div>
+      )}
+      {healingToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-card-bg border border-primary/40 px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+            <HeartHandshake size={16} className="text-primary" />
+            <span className="text-sm font-medium text-foreground">{healingToast}</span>
           </div>
         </div>
       )}
@@ -787,6 +835,49 @@ export default function ChatPage() {
                 )}
               </div>
             )}
+
+            {/* Engagement Games Panel */}
+            {activePanel === "games" && (
+              <EngagementPanel
+                charName={charName}
+                locale={locale}
+                t={t}
+                refreshSignal={engagementRefresh}
+                onClose={() => setActivePanel(null)}
+                onAppendMessages={(newMessages) => {
+                  setMessages((prev) => [...prev, ...newMessages]);
+                  setTimeout(() => scrollToBottom(), 50);
+                }}
+                onAffinityUpdate={(next) => updateAffinity(next)}
+                onLevelUp={(levelName) => {
+                  setLevelUpToast(levelName);
+                  setTimeout(() => setLevelUpToast(null), 4000);
+                }}
+                onToast={(message) => {
+                  setGameToast(message);
+                  setTimeout(() => setGameToast(null), 3500);
+                }}
+                onMessageLimit={() => {
+                  setMsgRemaining(0);
+                  setMsgLimitToast(true);
+                  setTimeout(() => setMsgLimitToast(false), 5000);
+                }}
+              />
+            )}
+
+            {/* Healing Mode Panel */}
+            {activePanel === "healing" && (
+              <HealingPanel
+                charName={charName}
+                locale={locale}
+                t={t}
+                onClose={() => setActivePanel(null)}
+                onToast={(message) => {
+                  setHealingToast(message);
+                  setTimeout(() => setHealingToast(null), 3500);
+                }}
+              />
+            )}
           </div>
         )}
       </div>
@@ -886,6 +977,8 @@ export default function ChatPage() {
         {/* Feature buttons */}
         <div className="max-w-2xl mx-auto flex items-center gap-1 px-4 pt-2">
           {([
+            { key: "healing" as PanelType, icon: HeartHandshake, label: t("healing.title") },
+            { key: "games" as PanelType, icon: Gamepad2, label: t("games.title") },
             { key: "mood" as PanelType, icon: BookOpen, label: t("mood.title") },
             { key: "milestone" as PanelType, icon: Trophy, label: t("milestone.title") },
             { key: "memory" as PanelType, icon: Brain, label: t("memory.title") },

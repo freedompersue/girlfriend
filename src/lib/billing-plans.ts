@@ -18,6 +18,7 @@ export interface PlanConfig {
   hasGoodnight: boolean;
   hasMemory: boolean;
   hasExternalLink: boolean;
+  hasHealing: boolean;
   stripePriceId: string;
 }
 
@@ -29,9 +30,9 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     nameJa: "無料",
     price: 0,
     priceDisplay: "¥0",
-    features: ["每天 30 条消息", "1 个角色", "基础聊天"],
-    featuresEn: ["30 messages/day", "1 character", "Basic chat"],
-    featuresJa: ["毎日30メッセージ", "1キャラ", "基本チャット"],
+    features: ["每天 30 条消息", "1 个角色", "基础聊天", "疗愈模式限时开放"],
+    featuresEn: ["30 messages/day", "1 character", "Basic chat", "Healing mode trial"],
+    featuresJa: ["毎日30メッセージ", "1キャラ", "基本チャット", "癒やしモード期間限定"],
     dailyMessages: 30,
     maxCharacters: 1,
     hasVoice: false,
@@ -40,6 +41,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasGoodnight: false,
     hasMemory: false,
     hasExternalLink: false,
+    hasHealing: false,
     stripePriceId: "",
   },
   plus: {
@@ -49,9 +51,9 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     nameJa: "Plus",
     price: 2900,
     priceDisplay: "¥29/月",
-    features: ["无限消息", "全部角色", "语音消息", "心情日记", "记忆系统"],
-    featuresEn: ["Unlimited messages", "All characters", "Voice messages", "Mood diary", "Memory system"],
-    featuresJa: ["無制限メッセージ", "全キャラ", "音声メッセージ", "気分日記", "記憶システム"],
+    features: ["无限消息", "全部角色", "语音消息", "心情日记", "记忆系统", "疗愈模式限时开放"],
+    featuresEn: ["Unlimited messages", "All characters", "Voice messages", "Mood diary", "Memory system", "Healing mode trial"],
+    featuresJa: ["無制限メッセージ", "全キャラ", "音声メッセージ", "気分日記", "記憶システム", "癒やしモード期間限定"],
     dailyMessages: -1,
     maxCharacters: -1,
     hasVoice: true,
@@ -60,6 +62,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasGoodnight: false,
     hasMemory: true,
     hasExternalLink: false,
+    hasHealing: false,
     stripePriceId: "",
   },
   pro: {
@@ -69,9 +72,9 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     nameJa: "Pro",
     price: 6900,
     priceDisplay: "¥69/月",
-    features: ["全部 Plus 功能", "AI 生成照片", "晚安电台", "记忆增强", "Telegram/QQ 接入", "优先响应"],
-    featuresEn: ["All Plus features", "AI photos", "Goodnight radio", "Enhanced memory", "Telegram/QQ", "Priority response"],
-    featuresJa: ["全Plus機能", "AI写真", "おやすみラジオ", "記憶強化", "Telegram/QQ", "優先応答"],
+    features: ["全部 Plus 功能", "AI 生成照片", "晚安电台", "疗愈模式", "记忆增强", "Telegram/QQ 接入", "优先响应"],
+    featuresEn: ["All Plus features", "AI photos", "Goodnight radio", "Healing mode", "Enhanced memory", "Telegram/QQ", "Priority response"],
+    featuresJa: ["全Plus機能", "AI写真", "おやすみラジオ", "癒やしモード", "記憶強化", "Telegram/QQ", "優先応答"],
     dailyMessages: -1,
     maxCharacters: -1,
     hasVoice: true,
@@ -80,6 +83,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasGoodnight: true,
     hasMemory: true,
     hasExternalLink: true,
+    hasHealing: true,
     stripePriceId: "",
   },
 };

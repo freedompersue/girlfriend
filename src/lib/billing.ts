@@ -41,7 +41,7 @@ export async function canSendMessage(userId: string): Promise<{ allowed: boolean
   return { allowed: remaining > 0, remaining, plan };
 }
 
-export async function canUseFeature(userId: string, feature: keyof Pick<PlanConfig, "hasVoice" | "hasPhotos" | "hasMoodDiary" | "hasGoodnight" | "hasMemory" | "hasExternalLink">): Promise<boolean> {
+export async function canUseFeature(userId: string, feature: keyof Pick<PlanConfig, "hasVoice" | "hasPhotos" | "hasMoodDiary" | "hasGoodnight" | "hasMemory" | "hasExternalLink" | "hasHealing">): Promise<boolean> {
   const config = await getUserPlanConfig(userId);
   return config[feature];
 }

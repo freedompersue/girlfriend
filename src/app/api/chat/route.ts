@@ -11,8 +11,9 @@ import {
 import { addAffinity, getAffinity, getAffinityPromptHint } from "@/lib/affinity";
 import { getTodayEvent, checkBirthdayEvent, getMemoryRecall } from "@/lib/events";
 import { analyzeMood } from "@/lib/mood";
-import { checkMilestones, getMilestonePromptHint } from "@/lib/milestone";
-import { canSendMessage, canUseFeature, PLANS } from "@/lib/billing";
+import { checkMilestones } from "@/lib/milestone";
+import { canSendMessage, canUseFeature } from "@/lib/billing";
+import { processChatEngagement } from "@/lib/games";
 
 export async function POST(req: NextRequest) {
   try {
@@ -184,6 +185,15 @@ export async function POST(req: NextRequest) {
   const affinityChange = isCold ? 0 : 2;
   const affinityResult = await addAffinity(user.id, character.id, affinityChange, "chat");
 
+  const engagement = await processChatEngagement({
+    userId: user.id,
+    characterId: character.id,
+    characterName: character.name,
+    userMessage: message,
+    assistantReply: replyText,
+    assistantMessageId: assistantMessage.id,
+  });
+
   extractUserProfile(user.id, message, replyText).catch(() => {});
   analyzeMood(user.id, character.id, message, replyText).catch(() => {});
   maybeRefreshChatSummary(user.id, character.id).catch(() => {});
@@ -194,6 +204,8 @@ export async function POST(req: NextRequest) {
     character.name
   ).catch(() => []);
 
+  const finalAffinity = engagement.affinity || await getAffinity(user.id, character.id);
+
   return NextResponse.json({
     message: {
       id: assistantMessage.id,
@@ -203,10 +215,16 @@ export async function POST(req: NextRequest) {
       createdAt: assistantMessage.createdAt,
     },
     affinity: {
-      score: affinityResult.score,
-      level: affinityResult.level,
-      levelUp: affinityResult.levelUp,
-      levelInfo: affinityResult.levelInfo,
+      score: finalAffinity.score,
+      level: finalAffinity.level,
+      levelUp: affinityResult.levelUp || engagement.levelUp,
+      levelInfo: finalAffinity.levelInfo,
+      progress: finalAffinity.progress,
+      nextLevel: finalAffinity.nextLevel,
+    },
+    engagement: {
+      completedTasks: engagement.completedTasks,
+      heartMoment: engagement.heartMoment,
     },
     newMilestones: newMilestones || [],
   });

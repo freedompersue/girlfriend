@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
+import { ArcadeGames } from "@/components/ArcadeGames";
 
 type Translate = (key: string, params?: Record<string, string>) => string;
 
@@ -40,6 +41,14 @@ interface GameCatalogItem {
   title: string;
   description: string;
   reward: number;
+}
+
+interface ArcadeCatalogItem {
+  type: "match_three" | "memory_match" | "photo_puzzle";
+  title: string;
+  description: string;
+  reward: number;
+  durationHint: string;
 }
 
 interface DailyTask {
@@ -78,6 +87,7 @@ interface MiniGameSession {
 
 interface EngagementOverview {
   games: GameCatalogItem[];
+  arcadeGames: ArcadeCatalogItem[];
   tasks: DailyTask[];
   currentSession: MiniGameSession | null;
   sessions: MiniGameSession[];
@@ -86,6 +96,7 @@ interface EngagementOverview {
 
 interface EngagementPanelProps {
   charName: string;
+  charAvatarUrl: string;
   locale: Locale;
   t: Translate;
   refreshSignal: number;
@@ -106,6 +117,7 @@ const GAME_ICONS: Record<GameCatalogItem["type"], typeof MessageCircleQuestion> 
 
 export function EngagementPanel({
   charName,
+  charAvatarUrl,
   locale,
   t,
   refreshSignal,
@@ -240,6 +252,35 @@ export function EngagementPanel({
     }
   };
 
+  const handleArcadeComplete = (data: {
+    message?: ChatMessage;
+    completedTasks?: { title: string; reward: number }[];
+    heartMoment?: unknown;
+    gameReward?: number;
+    rewardCapped?: boolean;
+    levelUp?: boolean;
+    affinity?: AffinityPayload | null;
+    overview?: unknown;
+  }) => {
+    if (data.message) onAppendMessages([data.message]);
+    if (data.affinity) {
+      onAffinityUpdate(data.affinity);
+      if (data.levelUp) onLevelUp(data.affinity.levelInfo.name);
+    }
+    if (data.overview) setOverview(data.overview as EngagementOverview);
+
+    if (data.rewardCapped) {
+      onToast(t("games.arcade_reward_limited"));
+      return;
+    }
+    const completedTask = data.completedTasks?.[0];
+    if (completedTask) {
+      onToast(`${completedTask.title} +${completedTask.reward}`);
+    } else if (data.gameReward && data.gameReward > 0) {
+      onToast(t("games.arcade_completed", { points: String(data.gameReward) }));
+    }
+  };
+
   return (
     <div className="p-4 bg-surface rounded-xl border border-card-border max-h-[32rem] overflow-y-auto">
       <div className="flex items-center justify-between mb-3">
@@ -350,6 +391,15 @@ export function EngagementPanel({
               )}
             </section>
           )}
+
+          <ArcadeGames
+            charName={charName}
+            charAvatarUrl={charAvatarUrl}
+            locale={locale}
+            t={t}
+            arcadeGames={overview.arcadeGames || []}
+            onComplete={handleArcadeComplete}
+          />
 
           <section>
             <h4 className="text-xs font-semibold mb-2">{t("games.choose_game")}</h4>

@@ -840,6 +840,7 @@ export default function ChatPage() {
             {activePanel === "games" && (
               <EngagementPanel
                 charName={charName}
+                charAvatarUrl={user?.selectedCharacter?.avatarUrl || ""}
                 locale={locale}
                 t={t}
                 refreshSignal={engagementRefresh}

@@ -5,6 +5,7 @@ import { llmClient } from "./minimax";
 import type { Locale } from "./i18n";
 
 export type MiniGameType = "truth" | "deep_questions" | "mood_guess" | "story_chain";
+export type ArcadeGameType = "match_three" | "memory_match" | "photo_puzzle";
 export type GameSessionStatus = "active" | "completed" | "abandoned";
 export type DailyTaskType = "share_today" | "warm_reply" | "play_game";
 
@@ -13,6 +14,14 @@ export interface GameCatalogItem {
   title: string;
   description: string;
   reward: number;
+}
+
+export interface ArcadeGameCatalogItem {
+  type: ArcadeGameType;
+  title: string;
+  description: string;
+  reward: number;
+  durationHint: string;
 }
 
 export interface DailyEngagementTask {
@@ -62,12 +71,24 @@ export interface MiniGameSession {
   completedAt?: string;
 }
 
+export interface ArcadePlayRecord {
+  id: string;
+  gameType: ArcadeGameType;
+  title: string;
+  score: number;
+  stars: number;
+  reward: number;
+  characterLine: string;
+  createdAt: string;
+}
+
 interface EngagementState {
   version: 1;
   date: string;
   tasks: DailyEngagementTask[];
   sessions: MiniGameSession[];
   moments: HeartMoment[];
+  arcadeRecords: ArcadePlayRecord[];
   updatedAt: string;
 }
 
@@ -80,6 +101,7 @@ interface CharacterForGame {
 const ENGAGEMENT_KEY_PREFIX = "__engagement_";
 const MAX_SESSIONS = 8;
 const MAX_MOMENTS = 24;
+const MAX_ARCADE_RECORDS = 24;
 
 export const GAME_CATALOG: GameCatalogItem[] = [
   {
@@ -105,6 +127,30 @@ export const GAME_CATALOG: GameCatalogItem[] = [
     title: "故事接龙",
     description: "你一句她一句，写一段只属于你们的小故事。",
     reward: 10,
+  },
+];
+
+export const ARCADE_GAME_CATALOG: ArcadeGameCatalogItem[] = [
+  {
+    type: "match_three",
+    title: "消消乐",
+    description: "用她喜欢的小物件连成三消，连击越多奖励越高。",
+    reward: 12,
+    durationHint: "2-3 分钟",
+  },
+  {
+    type: "memory_match",
+    title: "记忆翻牌",
+    description: "翻出配对的关键词和表情，看看你们的默契。",
+    reward: 8,
+    durationHint: "1 分钟",
+  },
+  {
+    type: "photo_puzzle",
+    title: "拼图相册",
+    description: "把她的照片拼回来，完成后会留下共同经历。",
+    reward: 10,
+    durationHint: "1-2 分钟",
   },
 ];
 
@@ -254,6 +300,7 @@ function defaultState(characterName: string): EngagementState {
     tasks: createDailyTasks(date, characterName),
     sessions: [],
     moments: [],
+    arcadeRecords: [],
     updatedAt: nowIso(),
   };
 }
@@ -267,6 +314,7 @@ function normalizeState(raw: unknown, characterName: string): EngagementState {
     tasks: Array.isArray(state.tasks) ? state.tasks : [],
     sessions: Array.isArray(state.sessions) ? state.sessions : [],
     moments: Array.isArray(state.moments) ? state.moments : [],
+    arcadeRecords: Array.isArray(state.arcadeRecords) ? state.arcadeRecords : [],
     updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : nowIso(),
   };
   return ensureTodayState(normalized, characterName);
@@ -296,6 +344,9 @@ function ensureTodayState(state: EngagementState, characterName: string): Engage
   state.moments = state.moments
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, MAX_MOMENTS);
+  state.arcadeRecords = state.arcadeRecords
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, MAX_ARCADE_RECORDS);
   state.updatedAt = nowIso();
   return state;
 }
@@ -420,10 +471,12 @@ export async function getEngagementOverview(
 
   return {
     games: GAME_CATALOG,
+    arcadeGames: ARCADE_GAME_CATALOG,
     tasks: state.tasks,
     currentSession,
     sessions: state.sessions,
     moments: state.moments,
+    arcadeRecords: state.arcadeRecords,
   };
 }
 
@@ -828,4 +881,138 @@ export async function abandonMiniGame(args: {
     await saveEngagementState(args.userId, args.characterId, state);
   }
   return getEngagementOverview(args.userId, args.characterId, args.characterName);
+}
+
+function getArcadeGame(type: ArcadeGameType) {
+  return ARCADE_GAME_CATALOG.find((item) => item.type === type) || ARCADE_GAME_CATALOG[0];
+}
+
+function clampArcadeStars(value: number) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(1, Math.min(3, Math.round(value)));
+}
+
+function getArcadeReward(baseReward: number, stars: number, capped: boolean) {
+  if (capped) return 0;
+  if (stars >= 3) return baseReward + 4;
+  if (stars === 2) return baseReward;
+  return Math.max(3, Math.round(baseReward * 0.65));
+}
+
+function getArcadeCharacterLine(args: {
+  characterName: string;
+  gameType: ArcadeGameType;
+  score: number;
+  stars: number;
+  capped: boolean;
+}) {
+  if (args.capped) {
+    return `${args.characterName}把这局也记下来了：今天这类奖励已经领满，但我还是陪你再玩。`;
+  }
+  if (args.gameType === "match_three") {
+    if (args.stars >= 3) return `${args.characterName}看着连消的光效笑了：这手感也太顺了吧，我有点服气。`;
+    if (args.stars === 2) return `${args.characterName}轻轻点头：不错嘛，刚才那一下连消我看见了。`;
+    return `${args.characterName}托着下巴看你：差一点点，不过你认真玩的样子还挺可爱的。`;
+  }
+  if (args.gameType === "memory_match") {
+    if (args.stars >= 3) return `${args.characterName}眨了眨眼：你记得这么快，我是不是该奖励你一句夸奖？`;
+    if (args.stars === 2) return `${args.characterName}笑了一下：这些小东西你都能配上，默契还不错。`;
+    return `${args.characterName}压低声音说：翻错也没关系，下次我偷偷提醒你。`;
+  }
+  if (args.stars >= 3) return `${args.characterName}看着拼回来的照片：这样就完整了，像把今天也好好收起来。`;
+  if (args.stars === 2) return `${args.characterName}把照片放正：嗯，这样看起来顺眼多了。`;
+  return `${args.characterName}笑着替你扶了一下边角：慢慢拼，反正我在这里。`;
+}
+
+function createArcadeMoment(args: {
+  game: ArcadeGameCatalogItem;
+  score: number;
+  stars: number;
+  characterLine: string;
+}) {
+  return {
+    id: createId("moment"),
+    title: `一起玩了${args.game.title}`,
+    quote: `分数 ${args.score} · ${args.stars} 星`,
+    context: trimText(args.characterLine, 140),
+    intensity: args.stars >= 3 ? 3 : 2,
+    createdAt: nowIso(),
+  } satisfies HeartMoment;
+}
+
+export async function completeArcadeGame(args: {
+  userId: string;
+  characterId: string;
+  characterName: string;
+  gameType: ArcadeGameType;
+  score: number;
+  stars: number;
+}) {
+  const state = await loadEngagementState(args.userId, args.characterId, args.characterName);
+  const game = getArcadeGame(args.gameType);
+  const stars = clampArcadeStars(args.stars);
+  const score = Math.max(0, Math.min(999999, Math.round(args.score)));
+  const today = getTodayStr();
+  const rewardedToday = state.arcadeRecords.filter(
+    (record) => record.gameType === game.type && record.reward > 0 && record.createdAt.startsWith(today)
+  ).length;
+  const capped = rewardedToday >= 3;
+  const reward = getArcadeReward(game.reward, stars, capped);
+  const characterLine = getArcadeCharacterLine({
+    characterName: args.characterName,
+    gameType: game.type,
+    score,
+    stars,
+    capped,
+  });
+
+  const completedTasks: DailyEngagementTask[] = [];
+  const completedTask = markTaskComplete(state, "play_game");
+  if (completedTask) completedTasks.push(completedTask);
+
+  const record: ArcadePlayRecord = {
+    id: createId("arcade"),
+    gameType: game.type,
+    title: game.title,
+    score,
+    stars,
+    reward,
+    characterLine,
+    createdAt: nowIso(),
+  };
+  state.arcadeRecords.unshift(record);
+
+  const heartMoment = createArcadeMoment({ game, score, stars, characterLine });
+  state.moments.unshift(heartMoment);
+
+  const levelUp = await applyRewards(
+    args.userId,
+    args.characterId,
+    completedTasks,
+    reward,
+    `arcade_game:${game.type}`
+  );
+
+  await saveEngagementState(args.userId, args.characterId, state);
+
+  const message = await prisma.message.create({
+    data: {
+      role: "assistant",
+      content: characterLine,
+      userId: args.userId,
+      characterId: args.characterId,
+    },
+  });
+
+  return {
+    record,
+    message,
+    completedTasks,
+    heartMoment,
+    gameReward: reward,
+    rewardCapped: capped,
+    levelUp,
+    affinity: reward > 0 || completedTasks.length > 0 ? await getAffinity(args.userId, args.characterId) : null,
+    overview: await getEngagementOverview(args.userId, args.characterId, args.characterName),
+  };
 }

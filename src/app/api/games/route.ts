@@ -4,8 +4,10 @@ import { canSendMessage } from "@/lib/billing";
 import {
   abandonMiniGame,
   answerMiniGame,
+  completeArcadeGame,
   getEngagementOverview,
   startMiniGame,
+  type ArcadeGameType,
   type MiniGameType,
 } from "@/lib/games";
 import type { Locale } from "@/lib/i18n";
@@ -16,6 +18,8 @@ const GAME_TYPES: MiniGameType[] = [
   "mood_guess",
   "story_chain",
 ];
+
+const ARCADE_TYPES: ArcadeGameType[] = ["match_three", "memory_match", "photo_puzzle"];
 
 function normalizeLocale(value: unknown): Locale {
   return value === "en" || value === "ja" || value === "zh" ? value : "zh";
@@ -140,6 +144,34 @@ export async function POST(req: NextRequest) {
         sessionId,
       });
       return NextResponse.json({ overview });
+    }
+
+    if (action === "arcade_complete") {
+      const gameType = ARCADE_TYPES.includes(body.gameType) ? body.gameType : null;
+      if (!gameType) {
+        return NextResponse.json({ error: "无效的小游戏类型" }, { status: 400 });
+      }
+
+      const result = await completeArcadeGame({
+        userId: user.id,
+        characterId: user.selectedCharacterId,
+        characterName: user.selectedCharacter.name,
+        gameType,
+        score: Number(body.score || 0),
+        stars: Number(body.stars || 1),
+      });
+
+      return NextResponse.json({
+        record: result.record,
+        message: serializeMessage(result.message),
+        completedTasks: result.completedTasks,
+        heartMoment: result.heartMoment,
+        gameReward: result.gameReward,
+        rewardCapped: result.rewardCapped,
+        levelUp: result.levelUp,
+        affinity: result.affinity,
+        overview: result.overview,
+      });
     }
 
     return NextResponse.json({ error: "无效的互动操作" }, { status: 400 });

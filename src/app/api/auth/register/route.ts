@@ -4,7 +4,27 @@ import { hashPassword, signToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, username, password, name } = await req.json();
+    const { email, username, password, name, turnstileToken } = await req.json();
+
+    // 验证 Turnstile token
+    if (!turnstileToken) {
+      return NextResponse.json({ error: "请完成人机验证" }, { status: 403 });
+    }
+    const verifyResponse = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: turnstileToken,
+        }),
+      }
+    );
+    const verifyResult = await verifyResponse.json();
+    if (!verifyResult.success) {
+      return NextResponse.json({ error: "人机验证失败，请重试" }, { status: 403 });
+    }
 
     if (!username && !email) {
       return NextResponse.json({ error: "请输入用户名或邮箱" }, { status: 400 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocale } from "@/hooks/useLocale";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
   const router = useRouter();
   const { mode, setMode } = useTheme();
   const { locale, setLocale, t } = useLocale();
@@ -29,7 +31,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email: email || undefined, password, name }),
+        body: JSON.stringify({ username, email: email || undefined, password, name, turnstileToken }),
       });
 
       const data = await res.json();
@@ -135,6 +137,13 @@ export default function RegisterPage() {
               {error && (
                 <p className="text-accent-rose text-sm text-center">{error}</p>
               )}
+
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                }}
+              />
 
               <button
                 type="submit"

@@ -43,18 +43,13 @@ export function useAuth() {
   useEffect(() => {
     if (isPending) return;
 
-    if (!session?.user) {
-      setUser(null);
-      setEnriching(false);
-      return;
-    }
-
     setEnriching(true);
     enrichUser();
   }, [session, isPending, enrichUser]);
 
   const logout = async () => {
-    await authClient.signOut();
+    await authClient.signOut().catch(() => {});
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setUser(null);
     window.location.href = "/login";
   };

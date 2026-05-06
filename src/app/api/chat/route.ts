@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { chatWithCharacter, generateImage } from "@/lib/minimax";
+import { uploadToR2 } from "@/lib/r2";
+import { nanoid } from "nanoid";
 import {
   getUserProfileString,
   extractUserProfile,
@@ -273,7 +275,18 @@ This feeling of "I think about you even when you are not here" makes the relatio
     if (canPhoto) {
       const sceneDesc = photoMatch[1];
       const imagePrompt = `${character.appearance}，${sceneDesc}，真实摄影风格，高清，自然光线`;
-      imageUrl = await generateImage(imagePrompt);
+      const tempImageUrl = await generateImage(imagePrompt, character.baseImageUrl ?? undefined);
+      if (tempImageUrl) {
+        try {
+          const imageResponse = await fetch(tempImageUrl);
+          const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+          const fileName = `images/${nanoid()}.png`;
+          imageUrl = await uploadToR2(imageBuffer, fileName, "image/png");
+        } catch (err) {
+          console.error("R2 upload failed, using temp URL:", err);
+          imageUrl = tempImageUrl;
+        }
+      }
     }
   }
 

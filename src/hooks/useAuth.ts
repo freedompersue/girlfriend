@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { authClient } from "@/lib/auth-client";
 
 interface User {
   id: string;
@@ -16,10 +17,11 @@ interface User {
 }
 
 export function useAuth() {
+  const { data: session, isPending } = authClient.useSession();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [enriching, setEnriching] = useState(true);
 
-  const fetchUser = useCallback(async () => {
+  const enrichUser = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me", {
         credentials: "include",
@@ -34,21 +36,28 @@ export function useAuth() {
     } catch {
       setUser(null);
     } finally {
-      setLoading(false);
+      setEnriching(false);
     }
   }, []);
 
   useEffect(() => {
-    void (async () => {
-      await fetchUser();
-    })();
-  }, [fetchUser]);
+    if (isPending) return;
+
+    if (!session?.user) {
+      setUser(null);
+      setEnriching(false);
+      return;
+    }
+
+    setEnriching(true);
+    enrichUser();
+  }, [session, isPending, enrichUser]);
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await authClient.signOut();
     setUser(null);
     window.location.href = "/login";
   };
 
-  return { user, loading, logout, refreshUser: fetchUser };
+  return { user, loading: isPending || enriching, logout, refreshUser: enrichUser };
 }

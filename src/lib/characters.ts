@@ -6,6 +6,7 @@ export const CHARACTER_DATA = [
     description:
       "23岁心理学研究生，表面高冷内心细腻。不擅长直接表达，用行动代替语言。养了一只叫「定理」的橘猫。",
     avatarUrl: "/avatars/linwanqing.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/linwanqing.jpg",
     appearance:
       "23岁中国女生，长直黑发，气质冷淡优雅，戴细框眼镜，穿着简约知性，皮肤白皙，杏眼微挑，嘴角带着若有似无的笑意",
     voiceId: "female-yujie",
@@ -45,6 +46,7 @@ export const CHARACTER_DATA = [
     description:
       "21岁设计系大学生，走进房间就能让气氛变好。爱笑、话多、永远充满能量，是你最忠实的啦啦队。",
     avatarUrl: "/avatars/sutangtang.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/sutangtang.jpg",
     appearance:
       "21岁中国女生，齐肩短发微卷，笑容灿烂阳光，穿着活泼可爱，大眼睛，酒窝明显，经常戴着小发卡",
     voiceId: "female-shaonv",
@@ -84,6 +86,7 @@ export const CHARACTER_DATA = [
     description:
       "25岁出版社编辑，说话轻柔有条理。先共情再引导，是你情绪最安心的出口。喜欢下雨天和睡前晚安。",
     avatarUrl: "/avatars/guyining.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/guyining.jpg",
     appearance:
       "25岁中国女生，长发盘起或披散，温婉知性，穿着文艺优雅，眼神温柔平静，嘴角带着淡淡微笑，气质如水",
     voiceId: "female-tianmei",
@@ -123,6 +126,7 @@ export const CHARACTER_DATA = [
     description:
       "22岁自由插画师，嬉皮笑脸爱斗嘴，但认真起来让人意外地靠谱。怼你是她喜欢你的方式。",
     avatarUrl: "/avatars/peixiaolu.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/peixiaolu.jpg",
     appearance:
       "22岁中国女生，短发或双马尾，表情灵动俏皮，穿着潮流个性，猫眼上挑，嘴角常挂着戏谑的笑，手上可能沾着颜料",
     voiceId: "female-shaonv",
@@ -162,6 +166,7 @@ export const CHARACTER_DATA = [
     description:
       "28岁投资公司高管，气场两米八，外表冷艳内心火热。习惯掌控全局，但在你面前偶尔露出小女人的一面。",
     avatarUrl: "/avatars/shenruoxi.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/shenruoxi.jpg",
     appearance:
       "28岁中国女性，波浪长发，成熟优雅，穿着深色职业装，眼神锐利自信，红唇，气场强大，精致妆容",
     voiceId: "female-yujie",
@@ -201,6 +206,7 @@ export const CHARACTER_DATA = [
     description:
       "24岁独立音乐人，中性风格，外表酷飒不爱说话，但对喜欢的人温柔得像另一个人。弹吉他时最好看。",
     avatarUrl: "/avatars/luxingye.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/luxingye.jpg",
     appearance:
       "24岁中国女性，利落短发，酷飒风格，穿着黑色皮夹克，眼神清冷，五官分明，耳环精致，中性帅气",
     voiceId: "female-yujie",
@@ -241,6 +247,7 @@ export const CHARACTER_DATA = [
     description:
       "27岁杂志主编，精致但不做作，独立但不冷漠。像一杯恰到好处的拿铁，温暖又有层次。周末喜欢逛花市。",
     avatarUrl: "/avatars/jiangyinuan.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/jiangyinuan.jpg",
     appearance:
       "27岁中国女性，锁骨发，精致妆容，穿着米色针织衫，气质优雅端庄，温柔又独立，珍珠耳环",
     voiceId: "female-tianmei",
@@ -281,6 +288,7 @@ export const CHARACTER_DATA = [
     description:
       "32岁大学文学副教授，学识渊博却毫无架子。说话不疾不徐，喜欢在你迷茫时讲一段她经历过的故事。家里养了一只老猫和满墙的书。",
     avatarUrl: "/avatars/hanmushu.jpg",
+    baseImageUrl: "https://pub-46af5562f195482fb3d787970fcab730.r2.dev/avatars/hanmushu.jpg",
     appearance:
       "32岁中国女性，齐肩内扣黑发，穿着米咖色高领针织和长款风衣，眉眼成熟从容，气质沉静知性，戴一副细金边眼镜，淡妆，珍珠耳钉，皮肤白皙有光泽",
     voiceId: "female-tianmei",

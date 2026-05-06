@@ -36,23 +36,34 @@ export async function chatWithCharacter(
   return raw.trim();
 }
 
-export async function generateImage(prompt: string): Promise<string | null> {
+export async function generateImage(
+  prompt: string,
+  referenceImageUrl?: string
+): Promise<string | null> {
   if (!MINIMAX_API_KEY) return null;
   try {
+    const body: Record<string, unknown> = {
+      model: "image-01",
+      prompt,
+      aspect_ratio: "3:4",
+      response_format: "url",
+      n: 1,
+      prompt_optimizer: true,
+    };
+
+    if (referenceImageUrl) {
+      body.subject_reference = [
+        { type: "character", image_file: referenceImageUrl },
+      ];
+    }
+
     const response = await fetch(`${MINIMAX_BASE_URL}/image_generation`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${MINIMAX_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "image-01",
-        prompt,
-        aspect_ratio: "3:4",
-        response_format: "url",
-        n: 1,
-        prompt_optimizer: true,
-      }),
+      body: JSON.stringify(body),
     });
 
     const result = await response.json();

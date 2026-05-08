@@ -253,6 +253,9 @@ model Subscription {
   id                   String    @id @default(cuid())
   plan                 String    @default("free")
   status               String    @default("active")
+  creemCustomerId      String?   @unique
+  creemSubscriptionId  String?   @unique
+  creemProductId       String?
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
   stripePriceId        String?
@@ -286,6 +289,11 @@ model Transaction {
   amount          Int
   credits         Int      @default(0)
   description     String
+  provider        String?
+  creemCheckoutId String?  @unique
+  creemOrderId    String?
+  creemTransactionId String? @unique
+  creemSubscriptionId String?
   stripePaymentId String?
   status          String   @default("completed")
   createdAt       DateTime @default(now())

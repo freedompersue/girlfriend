@@ -1,13 +1,16 @@
 import { prisma } from "./prisma";
-import { PLANS, CREDIT_COSTS, type PlanType, type PlanConfig } from "./billing-plans";
+import { PLANS, type PlanType, type PlanConfig } from "./billing-plans";
 
 export { PLANS, CREDIT_PACKS, CREDIT_COSTS, type PlanType, type PlanConfig } from "./billing-plans";
 
 export async function getUserPlan(userId: string): Promise<PlanType> {
   const sub = await prisma.subscription.findUnique({ where: { userId } });
   if (!sub) return "free";
-  if (sub.status !== "active") return "free";
   if (sub.currentPeriodEnd && sub.currentPeriodEnd < new Date()) return "free";
+
+  const activeStatuses = new Set(["active", "trialing", "past_due", "canceled", "scheduled_cancel"]);
+  if (!activeStatuses.has(sub.status)) return "free";
+
   return sub.plan as PlanType;
 }
 
@@ -68,7 +71,20 @@ export async function useCredits(userId: string, amount: number, description: st
   return true;
 }
 
-export async function addCredits(userId: string, amount: number, description: string, stripePaymentId?: string): Promise<void> {
+export async function addCredits(
+  userId: string,
+  amount: number,
+  description: string,
+  payment?: {
+    provider?: string;
+    stripePaymentId?: string;
+    creemCheckoutId?: string;
+    creemOrderId?: string;
+    creemTransactionId?: string;
+    creemSubscriptionId?: string;
+    status?: string;
+  }
+): Promise<void> {
   await prisma.$transaction([
     prisma.creditBalance.upsert({
       where: { userId },
@@ -76,7 +92,151 @@ export async function addCredits(userId: string, amount: number, description: st
       create: { userId, balance: amount },
     }),
     prisma.transaction.create({
-      data: { userId, type: "credit_purchase", amount: 0, credits: amount, description, stripePaymentId, status: "completed" },
+      data: {
+        userId,
+        type: "credit_purchase",
+        amount: 0,
+        credits: amount,
+        description,
+        provider: payment?.provider,
+        stripePaymentId: payment?.stripePaymentId,
+        creemCheckoutId: payment?.creemCheckoutId,
+        creemOrderId: payment?.creemOrderId,
+        creemTransactionId: payment?.creemTransactionId,
+        creemSubscriptionId: payment?.creemSubscriptionId,
+        status: payment?.status || "completed",
+      },
     }),
   ]);
+}
+
+export async function hasProcessedCreemCheckout(checkoutId: string): Promise<boolean> {
+  const transaction = await prisma.transaction.findUnique({
+    where: { creemCheckoutId: checkoutId },
+    select: { id: true },
+  });
+
+  return Boolean(transaction);
+}
+
+export async function hasProcessedCreemTransaction(transactionId: string): Promise<boolean> {
+  const transaction = await prisma.transaction.findUnique({
+    where: { creemTransactionId: transactionId },
+    select: { id: true },
+  });
+
+  return Boolean(transaction);
+}
+
+export async function recordCreemSubscriptionPayment(input: {
+  userId: string;
+  plan: PlanType;
+  amount: number;
+  description: string;
+  checkoutId?: string | null;
+  orderId?: string | null;
+  transactionId?: string | null;
+  subscriptionId?: string | null;
+  status?: string;
+}): Promise<void> {
+  await prisma.transaction.create({
+    data: {
+      userId: input.userId,
+      type: "subscription",
+      amount: input.amount,
+      description: input.description,
+      provider: "creem",
+      creemCheckoutId: input.checkoutId || undefined,
+      creemOrderId: input.orderId || undefined,
+      creemTransactionId: input.transactionId || undefined,
+      creemSubscriptionId: input.subscriptionId || undefined,
+      status: input.status || "completed",
+    },
+  });
+}
+
+export async function markCreemTransactionStatus(
+  transactionId: string,
+  status: string
+): Promise<void> {
+  await prisma.transaction.updateMany({
+    where: { OR: [{ creemTransactionId: transactionId }, { creemOrderId: transactionId }] },
+    data: { status },
+  });
+}
+
+export async function markSubscriptionTransactionsStatus(
+  subscriptionId: string,
+  status: string
+): Promise<void> {
+  await prisma.transaction.updateMany({
+    where: { creemSubscriptionId: subscriptionId },
+    data: { status },
+  });
+}
+
+export async function findUserIdByCreemCustomerId(customerId: string): Promise<string | null> {
+  const sub = await prisma.subscription.findFirst({
+    where: { creemCustomerId: customerId },
+    select: { userId: true },
+  });
+
+  return sub?.userId || null;
+}
+
+export async function findUserIdByEmail(email: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  return user?.id || null;
+}
+
+export async function upsertSubscriptionRecord(input: {
+  userId: string;
+  plan: PlanType;
+  status: string;
+  creemCustomerId?: string | null;
+  creemSubscriptionId?: string | null;
+  creemProductId?: string | null;
+  currentPeriodStart?: Date | null;
+  currentPeriodEnd?: Date | null;
+  cancelAtPeriodEnd?: boolean;
+}): Promise<void> {
+  const existing = await prisma.subscription.findUnique({
+    where: { userId: input.userId },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await prisma.subscription.update({
+      where: { userId: input.userId },
+      data: {
+        plan: input.plan,
+        status: input.status,
+        creemCustomerId: input.creemCustomerId || undefined,
+        creemSubscriptionId: input.creemSubscriptionId || undefined,
+        creemProductId: input.creemProductId || undefined,
+        currentPeriodStart: input.currentPeriodStart,
+        currentPeriodEnd: input.currentPeriodEnd,
+        cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
+      },
+    });
+    return;
+  }
+
+  await prisma.subscription.create({
+    data: {
+      userId: input.userId,
+      plan: input.plan,
+      status: input.status,
+      creemCustomerId: input.creemCustomerId || undefined,
+      creemSubscriptionId: input.creemSubscriptionId || undefined,
+      creemProductId: input.creemProductId || undefined,
+      currentPeriodStart: input.currentPeriodStart,
+      currentPeriodEnd: input.currentPeriodEnd,
+      cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
+    },
+  });
 }

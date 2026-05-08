@@ -10,7 +10,7 @@
 - LLM: OpenRouter，模型由 `LLM_MODEL` 控制
 - Image & TTS: MiniMax，仅用于图片生成和语音合成
 - Auth: JWT + Better Auth，支持 Google OAuth；GitHub OAuth 可选
-- Billing: Stripe 结构已接入，Stripe key 为空时支付功能不可用
+- Billing: Creem 支付结构已接入，未配置 Creem key 时支付功能不可用
 - Deploy: Vercel，`vercel.json` 已配置每日 Cron
 
 > `.env` 包含真实 Neon、OpenRouter、MiniMax、OAuth 等密钥，不要提交到 GitHub。生产环境建议把 `JWT_SECRET` 换成强随机值，并在 Vercel Project Settings 里逐项配置环境变量。
@@ -22,7 +22,7 @@
 - 关系系统：好感度、等级、签到、里程碑、通知。
 - 记忆系统：用户画像提取、滚动聊天摘要、记忆面板。
 - 心情系统：聊天后异步分析心情，生成心情日记。
-- 付费体系：Free / Plus / Pro、Stripe Checkout、Portal、积分余额。
+- 付费体系：Free / Plus / Pro、Creem Checkout、Customer Portal、积分余额。
 - 跨平台：Telegram/QQ 接入结构已预留。
 
 ## 互动系统
@@ -81,8 +81,8 @@ HEALING_FREE_TRIAL_OPEN="true"
 - `MINIMAX_API_KEY` / `MINIMAX_BASE_URL`: 开启图片生成和 TTS。
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: 开启 Google 登录。
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: 开启 GitHub 登录。
-- `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: 开启支付。
-- `STRIPE_PLUS_PRICE_ID` / `STRIPE_PRO_PRICE_ID` / 积分 Price ID: 绑定 Stripe 商品价格。
+- `CREEM_API_KEY` / `CREEM_BASE_URL` / `CREEM_WEBHOOK_SECRET`: 开启 Creem 支付，开发时使用测试模式。
+- `CREEM_PLUS_PRODUCT_ID` / `CREEM_PRO_PRODUCT_ID` / 积分 Product ID: 绑定 Creem 商品。
 - `TELEGRAM_BOT_TOKEN` / `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`: 开启 Telegram 接入。
 - `CRON_SECRET`: 保护 Vercel Cron 接口。
 

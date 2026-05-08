@@ -3,6 +3,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "@/hooks/useLocale";
+import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { UserAvatarLink } from "@/components/UserAvatarLink";
 import { PLANS, CREDIT_PACKS, type PlanType, type PlanConfig } from "@/lib/billing-plans";
 
 export default function PricingPage() {
@@ -15,6 +19,8 @@ export default function PricingPage() {
 
 function PricingContent() {
   const { locale, t } = useLocale();
+  const { mode, setMode } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -130,6 +136,15 @@ function PricingContent() {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          {user ? <UserAvatarLink user={user} subtitle={t("chat.account")} /> : <div />}
+          <ThemeSwitcher
+            mode={mode}
+            setMode={setMode}
+            labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
+          />
+        </div>
+
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => router.back()}

@@ -8,6 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { EngagementPanel } from "@/components/EngagementPanel";
 import { HealingPanel } from "@/components/HealingPanel";
+import { UserAvatarLink } from "@/components/UserAvatarLink";
 import { CHARACTER_LOCALES } from "@/lib/character-i18n";
 import {
   Send,
@@ -545,6 +546,9 @@ export default function ChatPage() {
               <p className="text-xs text-muted">
                 {charLocaleData.subtitle || user?.selectedCharacter?.subtitle || t("chat.online")}
               </p>
+              <p className="hidden text-[11px] text-muted/80 md:block">
+                {t("chat.relationship_hint")}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -582,6 +586,7 @@ export default function ChatPage() {
               setMode={setMode}
               labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
             />
+            <UserAvatarLink user={user} subtitle={t("chat.account")} compact />
             <button
               onClick={() => router.push("/pricing")}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-all ${

@@ -5,8 +5,10 @@ import { authClient } from "@/lib/auth-client";
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
+  username: string | null;
   name: string | null;
+  image: string | null;
   selectedCharacterId: string | null;
   selectedCharacter: {
     id: string;

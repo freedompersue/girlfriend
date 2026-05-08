@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLocale } from "@/hooks/useLocale";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { UserAvatarLink } from "@/components/UserAvatarLink";
 import { Shuffle, Heart, Loader2, RefreshCw, Sparkles, PenLine } from "lucide-react";
 
 interface Character {
@@ -140,25 +141,31 @@ export default function SelectPage() {
   const sortedByMBTI = [...characters].sort((a, b) =>
     (mbtiScores[b.originalName] || 0) - (mbtiScores[a.originalName] || 0)
   );
+  const displayName = user?.name || user?.username || user?.email?.split("@")[0] || "You";
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="flex items-center justify-end gap-2 p-4">
+      <div className="flex items-center justify-between gap-3 p-4">
+        <UserAvatarLink user={user} subtitle={t("chat.account")} />
+        <div className="flex items-center gap-2">
         <LocaleSwitcher locale={locale} setLocale={setLocale} />
         <ThemeSwitcher
           mode={mode}
           setMode={setMode}
           labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
         />
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center px-4 pb-8">
         <div className="w-full max-w-4xl animate-slide-up">
           <div className="text-center mb-6">
+            <p className="text-sm text-primary mb-2">{t("select.logged_in_as", { name: displayName })}</p>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-light to-accent-pink bg-clip-text text-transparent">
               {t("select.title")}
             </h1>
             <p className="text-muted mt-2">{t("select.subtitle")}</p>
+            <p className="text-muted/80 mt-2 text-sm">{t("select.helper")}</p>
           </div>
 
           {/* Tab Switcher */}

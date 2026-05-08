@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
         successUrl: buildSuccessUrl("subscription", planId),
         customerId: existingSub?.creemCustomerId || undefined,
         customerEmail: user.email || undefined,
-        customerName: user.name || user.username || undefined,
         metadata: {
           userId: user.id,
           type: "subscription",
@@ -81,7 +80,6 @@ export async function POST(req: NextRequest) {
         successUrl: buildSuccessUrl("credits", pack.id),
         customerId: existingSub?.creemCustomerId || undefined,
         customerEmail: user.email || undefined,
-        customerName: user.name || user.username || undefined,
         metadata: {
           userId: user.id,
           type: "credits",

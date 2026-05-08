@@ -198,16 +198,14 @@ export async function createCreemCheckout(payload: {
   successUrl?: string;
   customerId?: string;
   customerEmail?: string;
-  customerName?: string;
   units?: number;
   metadata?: Record<string, JsonValue>;
 }) {
   const customer =
-    payload.customerId || payload.customerEmail || payload.customerName
+    payload.customerId || payload.customerEmail
       ? {
           ...(payload.customerId ? { id: payload.customerId } : {}),
           ...(payload.customerEmail ? { email: payload.customerEmail } : {}),
-          ...(payload.customerName ? { name: payload.customerName } : {}),
         }
       : undefined;
 

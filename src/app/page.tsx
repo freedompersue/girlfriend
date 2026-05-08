@@ -126,6 +126,26 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 pb-24 md:pb-28">
+        <div className="mb-8 text-center">
+          <p className="text-fuchsia-300/80 text-xs tracking-[0.2em] uppercase mb-3">{t("landing.flow_kicker")}</p>
+          <h2 className="font-serif text-3xl md:text-4xl text-white tracking-tight">{t("landing.flow_title")}</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { step: "01", title: t("landing.flow_step1_title"), desc: t("landing.flow_step1_desc") },
+            { step: "02", title: t("landing.flow_step2_title"), desc: t("landing.flow_step2_desc") },
+            { step: "03", title: t("landing.flow_step3_title"), desc: t("landing.flow_step3_desc") },
+          ].map((item) => (
+            <div key={item.step} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md">
+              <p className="text-xs tracking-[0.25em] text-white/35 mb-4">{item.step}</p>
+              <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+              <p className="text-sm leading-6 text-white/60">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Characters */}
       <section id="characters" className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 pb-24 md:pb-32">
         <div className="flex items-end justify-between mb-10 md:mb-14">

@@ -231,6 +231,24 @@ export async function getCreemCustomerPortalLink(customerId: string) {
   });
 }
 
+export async function getCreemCheckout(checkoutId: string) {
+  return creemRequest<CreemCheckoutCompletedObject>(
+    `/checkouts?checkout_id=${encodeURIComponent(checkoutId)}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function getCreemSubscription(subscriptionId: string) {
+  return creemRequest<CreemSubscriptionRef>(
+    `/subscriptions?subscription_id=${encodeURIComponent(subscriptionId)}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
 export function verifyCreemWebhookSignature(payload: string, signature: string | null): boolean {
   if (!signature) return false;
 
@@ -267,7 +285,14 @@ export function verifyCreemRedirectSignature(params: CreemRedirectParams): boole
     product_id: params.product_id,
     request_id: params.request_id,
   })
-    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .filter(
+      ([, value]) =>
+        value !== null &&
+        value !== undefined &&
+        value !== "" &&
+        value !== "null" &&
+        value !== "undefined"
+    )
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => `${key}=${value}`)
     .join("&");

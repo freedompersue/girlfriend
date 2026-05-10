@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { addCredits, hasProcessedCreemCheckout, upsertSubscriptionRecord } from "@/lib/billing";
+import {
+  addCredits,
+  findUserIdByCreemCustomerId,
+  findUserIdByEmail,
+  hasProcessedCreemCheckout,
+  upsertSubscriptionRecord,
+} from "@/lib/billing";
 import {
   getAppBaseUrl,
   getCreemCheckout,
@@ -32,6 +38,25 @@ function inferPlanFromReturn(
   return null;
 }
 
+async function resolveUserId(input: {
+  metadata?: Record<string, string>;
+  customerId?: string | null;
+  customerEmail?: string | null;
+  fallbackUserId?: string | null;
+}): Promise<string | null> {
+  const metaUserId = input.metadata?.userId;
+  if (metaUserId) return metaUserId;
+  if (input.customerId) {
+    const id = await findUserIdByCreemCustomerId(input.customerId);
+    if (id) return id;
+  }
+  if (input.customerEmail) {
+    const id = await findUserIdByEmail(input.customerEmail);
+    if (id) return id;
+  }
+  return input.fallbackUserId || null;
+}
+
 async function syncSuccessfulReturn(req: NextRequest, input: {
   type: string | null;
   planId: string | null;
@@ -39,19 +64,34 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
   checkoutId: string | null;
   subscriptionId: string | null;
 }) {
-  const user = await getCurrentUser(req);
-  if (!user) return false;
+  // Best-effort current user — used only as a fallback when checkout
+  // metadata / customer mapping is missing. Do NOT require it.
+  const sessionUser = await getCurrentUser(req).catch(() => null);
+  const fallbackUserId = sessionUser?.id || null;
 
   try {
     if (input.checkoutId) {
       const checkout = await getCreemCheckout(input.checkoutId);
       const metadata = getCreemMetadata(checkout.metadata);
 
-      if (metadata.userId && metadata.userId !== user.id) {
+      // Authoritative success check from Creem API.
+      if (checkout.status !== "completed" && checkout.order?.status !== "paid") {
         return false;
       }
 
-      if (checkout.status !== "completed" && checkout.order?.status !== "paid") {
+      const customerId = checkout.customer?.id || null;
+      const customerEmail = checkout.customer?.email || null;
+      const userId = await resolveUserId({
+        metadata,
+        customerId,
+        customerEmail,
+        fallbackUserId,
+      });
+
+      if (!userId) return false;
+
+      // Sanity: if metadata explicitly binds to a different user, refuse.
+      if (metadata.userId && metadata.userId !== userId) {
         return false;
       }
 
@@ -59,8 +99,6 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
         const productId =
           getCreemObjectId(checkout.subscription.product) || getCreemObjectId(checkout.product);
         const plan = inferPlanFromReturn(input.planId, productId);
-        const customerId = checkout.customer?.id || null;
-        const customerEmail = checkout.customer?.email || null;
 
         if (!plan) return false;
 
@@ -70,7 +108,7 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
             : checkout.subscription;
 
         await upsertSubscriptionRecord({
-          userId: user.id,
+          userId,
           plan,
           status: subscription.status || "active",
           creemCustomerId:
@@ -88,30 +126,13 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
             Boolean(subscription.canceled_at),
         });
 
-        if (!customerId && customerEmail) {
-          await upsertSubscriptionRecord({
-            userId: user.id,
-            plan,
-            status: subscription.status || "active",
-            creemSubscriptionId: subscription.id,
-            creemProductId: productId,
-            currentPeriodStart: parseCreemDate(subscription.current_period_start_date),
-            currentPeriodEnd: parseCreemDate(subscription.current_period_end_date),
-            cancelAtPeriodEnd:
-              subscription.status === "canceled" ||
-              subscription.status === "scheduled_cancel" ||
-              subscription.status === "paused" ||
-              Boolean(subscription.canceled_at),
-          });
-        }
-
         return true;
       }
 
-      if (input.type === "credits") {
+      if (input.type === "credits" || metadata.type === "credits") {
         const credits = Number.parseInt(metadata.credits || "0", 10);
         if (credits > 0 && !(await hasProcessedCreemCheckout(checkout.id))) {
-          await addCredits(user.id, credits, `购买 ${credits} 积分`, {
+          await addCredits(userId, credits, `购买 ${credits} 积分`, {
             provider: "creem",
             creemCheckoutId: checkout.id,
             creemOrderId: checkout.order?.id || undefined,
@@ -128,14 +149,28 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
 
       if (!plan) return false;
 
+      const customerId =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id || null;
+      const customerEmail =
+        typeof subscription.customer === "string"
+          ? null
+          : subscription.customer?.email || null;
+      const userId = await resolveUserId({
+        metadata: getCreemMetadata(subscription.metadata),
+        customerId,
+        customerEmail,
+        fallbackUserId,
+      });
+
+      if (!userId) return false;
+
       await upsertSubscriptionRecord({
-        userId: user.id,
+        userId,
         plan,
         status: subscription.status || "active",
-        creemCustomerId:
-          typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer?.id || undefined,
+        creemCustomerId: customerId || undefined,
         creemSubscriptionId: subscription.id,
         creemProductId: productId,
         currentPeriodStart: parseCreemDate(subscription.current_period_start_date),

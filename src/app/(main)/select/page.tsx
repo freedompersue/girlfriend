@@ -144,7 +144,14 @@ export default function SelectPage() {
   const displayName = user?.name || user?.username || user?.email?.split("@")[0] || "You";
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="relative flex-1 flex flex-col min-h-screen overflow-hidden">
+      {/* Ambient backdrop matching landing */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-background" />
+        <div className="absolute top-[-10%] left-[-10%] w-[55vw] h-[55vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.16),transparent_60%)] blur-3xl" />
+        <div className="absolute bottom-[-15%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(244,114,182,0.12),transparent_60%)] blur-3xl" />
+      </div>
+
       <div className="flex items-center justify-between gap-3 p-4">
         <UserAvatarLink user={user} subtitle={t("chat.account")} />
         <div className="flex items-center gap-2">
@@ -159,6 +166,15 @@ export default function SelectPage() {
 
       <div className="flex-1 flex flex-col items-center px-4 pb-8">
         <div className="w-full max-w-4xl animate-slide-up">
+          {/* Step indicator */}
+          <div className="mb-4 flex items-center justify-center gap-2 text-[11px] tracking-wider uppercase text-muted">
+            <span className="opacity-60">{t("auth.progress_login")}</span>
+            <span className="opacity-40">→</span>
+            <span className="text-primary font-semibold">{t("auth.progress_select")}</span>
+            <span className="opacity-40">→</span>
+            <span className="opacity-60">{t("auth.progress_chat")}</span>
+          </div>
+
           <div className="text-center mb-6">
             <p className="text-sm text-primary mb-2">{t("select.logged_in_as", { name: displayName })}</p>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-light to-accent-pink bg-clip-text text-transparent">

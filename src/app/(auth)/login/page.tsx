@@ -50,104 +50,100 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="flex items-center justify-between gap-3 p-4">
+    <div className="relative flex-1 flex flex-col min-h-screen overflow-hidden">
+      {/* Ambient backdrop matching landing */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-background" />
+        <div className="absolute top-[-15%] left-[-10%] w-[55vw] h-[55vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.18),transparent_60%)] blur-3xl" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(244,114,182,0.14),transparent_60%)] blur-3xl" />
+      </div>
+
+      <div className="flex items-center justify-between gap-3 p-4 md:p-6">
         <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">
           ← {t("auth.back_home")}
         </Link>
-        <LocaleSwitcher locale={locale} setLocale={setLocale} />
-        <ThemeSwitcher
-          mode={mode}
-          setMode={setMode}
-          labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
-        />
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher locale={locale} setLocale={setLocale} />
+          <ThemeSwitcher
+            mode={mode}
+            setMode={setMode}
+            labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
+          />
+        </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-5xl animate-slide-up">
-          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-3xl border border-card-border bg-card-bg p-8 lg:p-10">
-              <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
-                {t("auth.progress_title")}
-              </div>
-              <div className="mt-6">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-light to-accent-pink bg-clip-text text-transparent">
-                  {t("app.name")}
-                </h1>
-                <p className="text-muted mt-3 text-sm leading-6">{t("auth.login_hint")}</p>
-              </div>
-              <div className="mt-8 space-y-4">
-                {[t("auth.progress_login"), t("auth.progress_select"), t("auth.progress_chat")].map((item, index) => (
-                  <div key={item} className="flex items-center gap-4 rounded-2xl border border-card-border bg-surface/60 px-4 py-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-primary to-accent-pink text-sm font-semibold text-white">
-                      {index + 1}
-                    </div>
-                    <p className="text-sm text-foreground">{item}</p>
-                  </div>
-                ))}
-              </div>
+      <div className="flex-1 flex items-center justify-center px-4 pb-10">
+        <div className="w-full max-w-md animate-slide-up">
+          {/* Step indicator */}
+          <div className="mb-6 flex items-center justify-center gap-2 text-[11px] tracking-wider uppercase text-muted">
+            <span className="text-primary font-semibold">{t("auth.progress_login")}</span>
+            <span className="opacity-40">→</span>
+            <span>{t("auth.progress_select")}</span>
+            <span className="opacity-40">→</span>
+            <span>{t("auth.progress_chat")}</span>
+          </div>
+
+          <div className="rounded-3xl border border-card-border bg-card-bg/80 backdrop-blur-xl p-7 sm:p-9 shadow-xl shadow-primary/5">
+            <div className="text-center mb-7">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-light to-accent-pink bg-clip-text text-transparent">
+                {t("app.name")}
+              </h1>
+              <p className="text-muted mt-2 text-sm leading-6">{t("auth.login_hint")}</p>
             </div>
 
-            <div className="bg-card-bg border border-card-border rounded-2xl p-8">
-              <h2 className="text-xl font-semibold mb-2 text-center">
-                {t("auth.login")}
-              </h2>
-              <p className="mb-6 text-center text-sm text-muted">{t("app.tagline")}</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">
+                  {t("auth.account")}
+                </label>
+                <input
+                  type="text"
+                  value={account}
+                  onChange={(e) => setAccount(e.target.value)}
+                  className="w-full px-4 py-3 bg-input-bg border border-card-border rounded-xl text-foreground placeholder-muted/50 focus:outline-none focus:border-primary transition-colors"
+                  placeholder={t("auth.account_placeholder")}
+                  required
+                />
+              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-muted mb-1.5">
-                    {t("auth.account")}
-                  </label>
-                  <input
-                    type="text"
-                    value={account}
-                    onChange={(e) => setAccount(e.target.value)}
-                    className="w-full px-4 py-3 bg-input-bg border border-card-border rounded-xl text-foreground placeholder-muted/50 focus:outline-none focus:border-primary transition-colors"
-                    placeholder={t("auth.account_placeholder")}
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">
+                  {t("auth.password")}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-input-bg border border-card-border rounded-xl text-foreground placeholder-muted/50 focus:outline-none focus:border-primary transition-colors"
+                  placeholder={t("auth.password_placeholder")}
+                  required
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm text-muted mb-1.5">
-                    {t("auth.password")}
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-input-bg border border-card-border rounded-xl text-foreground placeholder-muted/50 focus:outline-none focus:border-primary transition-colors"
-                    placeholder={t("auth.password_placeholder")}
-                    required
-                  />
-                </div>
+              {error && (
+                <p className="text-accent-rose text-sm text-center">{error}</p>
+              )}
 
-                {error && (
-                  <p className="text-accent-rose text-sm text-center">{error}</p>
-                )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-primary to-accent-pink text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg shadow-primary/20"
+              >
+                {loading ? t("auth.logging_in") : t("auth.login")}
+              </button>
+            </form>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {loading ? t("auth.logging_in") : t("auth.login")}
-                </button>
-              </form>
+            <SocialLoginButtons t={t} callbackURL="/select" />
 
-              <SocialLoginButtons t={t} callbackURL="/select" />
-
-              <p className="text-center text-muted text-sm mt-6">
-                {t("auth.no_account")}{" "}
-                <Link
-                  href="/register"
-                  className="text-primary-light hover:underline"
-                >
-                  {t("auth.register")}
-                </Link>
-              </p>
-            </div>
+            <p className="text-center text-muted text-sm mt-6">
+              {t("auth.no_account")}{" "}
+              <Link
+                href="/register"
+                className="text-primary-light hover:underline font-medium"
+              >
+                {t("auth.register")}
+              </Link>
+            </p>
           </div>
         </div>
       </div>

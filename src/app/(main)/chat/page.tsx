@@ -14,7 +14,6 @@ import {
   Send,
   Volume2,
   Loader2,
-  LogOut,
   ArrowLeftRight,
   ChevronDown,
   Heart,
@@ -27,7 +26,6 @@ import {
   Brain,
   Trophy,
   Play,
-  Link2,
   Crown,
   Gamepad2,
   HeartHandshake,
@@ -102,7 +100,7 @@ function getLocalizedLevelName(
 }
 
 export default function ChatPage() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { mode, setMode } = useTheme();
   const { locale, t } = useLocale();
@@ -587,40 +585,22 @@ export default function ChatPage() {
               labels={{ light: t("theme.light"), dark: t("theme.dark"), auto: t("theme.auto") }}
             />
             <UserAvatarLink user={user} subtitle={t("chat.account")} compact />
-            <button
-              onClick={() => router.push("/pricing")}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-all ${
-                billingPlan !== "free"
-                  ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
-                  : "text-muted hover:text-foreground hover:bg-surface"
-              }`}
-              title={t("pricing.title")}
-            >
-              <Crown size={14} />
-              {billingPlan !== "free" && (
+            {billingPlan !== "free" && (
+              <button
+                onClick={() => router.push("/pricing")}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all"
+                title={t("pricing.title")}
+              >
+                <Crown size={14} />
                 <span className="hidden sm:inline font-medium uppercase">{billingPlan}</span>
-              )}
-            </button>
-            <button
-              onClick={() => router.push("/integrations")}
-              className="p-2 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface"
-              title={t("integration.title")}
-            >
-              <Link2 size={18} />
-            </button>
+              </button>
+            )}
             <button
               onClick={() => router.push("/select")}
               className="p-2 text-muted hover:text-foreground transition-colors rounded-lg hover:bg-surface"
               title={t("chat.switch_role")}
             >
               <ArrowLeftRight size={18} />
-            </button>
-            <button
-              onClick={logout}
-              className="p-2 text-muted hover:text-accent-rose transition-colors rounded-lg hover:bg-surface"
-              title={t("chat.logout")}
-            >
-              <LogOut size={18} />
             </button>
           </div>
         </div>

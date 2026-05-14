@@ -64,23 +64,29 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
   checkoutId: string | null;
   subscriptionId: string | null;
 }) {
-  // Best-effort current user — used only as a fallback when checkout
-  // metadata / customer mapping is missing. Do NOT require it.
   const sessionUser = await getCurrentUser(req).catch(() => null);
   const fallbackUserId = sessionUser?.id || null;
 
   try {
     if (input.checkoutId) {
+      console.log("[creem-return] Fetching checkout:", input.checkoutId);
       const checkout = await getCreemCheckout(input.checkoutId);
       const metadata = getCreemMetadata(checkout.metadata);
 
+      console.log("[creem-return] Checkout status:", checkout.status, "order status:", checkout.order?.status);
+
       // Authoritative success check from Creem API.
       if (checkout.status !== "completed" && checkout.order?.status !== "paid") {
+        console.warn("[creem-return] Checkout not completed. status:", checkout.status, "order.status:", checkout.order?.status);
         return false;
       }
 
-      const customerId = checkout.customer?.id || null;
-      const customerEmail = checkout.customer?.email || null;
+      const customerId = typeof checkout.customer === "string"
+        ? checkout.customer
+        : checkout.customer?.id || null;
+      const customerEmail = typeof checkout.customer === "string"
+        ? null
+        : checkout.customer?.email || null;
       const userId = await resolveUserId({
         metadata,
         customerId,
@@ -88,24 +94,33 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
         fallbackUserId,
       });
 
-      if (!userId) return false;
-
-      // Sanity: if metadata explicitly binds to a different user, refuse.
-      if (metadata.userId && metadata.userId !== userId) {
+      if (!userId) {
+        console.warn("[creem-return] Could not resolve userId. metadata:", metadata, "customerId:", customerId, "customerEmail:", customerEmail, "fallbackUserId:", fallbackUserId);
         return false;
       }
 
-      if (input.type === "subscription" && checkout.subscription?.id) {
-        const productId =
-          getCreemObjectId(checkout.subscription.product) || getCreemObjectId(checkout.product);
-        const plan = inferPlanFromReturn(input.planId, productId);
+      // Sanity: if metadata explicitly binds to a different user, refuse.
+      if (metadata.userId && metadata.userId !== userId) {
+        console.warn("[creem-return] User mismatch. metadata.userId:", metadata.userId, "resolved userId:", userId);
+        return false;
+      }
 
-        if (!plan) return false;
-
+      if (input.type === "subscription" && checkout.subscription) {
         const subscription =
           typeof checkout.subscription === "string"
             ? await getCreemSubscription(checkout.subscription)
             : checkout.subscription;
+
+        const productId =
+          getCreemObjectId(subscription.product) || getCreemObjectId(checkout.product);
+        const plan = inferPlanFromReturn(input.planId, productId);
+
+        if (!plan) {
+          console.warn("[creem-return] Could not infer plan. planId:", input.planId, "productId:", productId);
+          return false;
+        }
+
+        console.log("[creem-return] Upserting subscription for user:", userId, "plan:", plan, "subscriptionId:", subscription.id);
 
         await upsertSubscriptionRecord({
           userId,
@@ -126,6 +141,7 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
             Boolean(subscription.canceled_at),
         });
 
+        console.log("[creem-return] Subscription synced successfully");
         return true;
       }
 
@@ -143,11 +159,15 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
     }
 
     if (input.type === "subscription" && input.subscriptionId) {
+      console.log("[creem-return] Fetching subscription by ID:", input.subscriptionId);
       const subscription = await getCreemSubscription(input.subscriptionId);
       const productId = getCreemObjectId(subscription.product);
       const plan = inferPlanFromReturn(input.planId, productId);
 
-      if (!plan) return false;
+      if (!plan) {
+        console.warn("[creem-return] Could not infer plan from subscription. planId:", input.planId, "productId:", productId);
+        return false;
+      }
 
       const customerId =
         typeof subscription.customer === "string"
@@ -164,7 +184,10 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
         fallbackUserId,
       });
 
-      if (!userId) return false;
+      if (!userId) {
+        console.warn("[creem-return] Could not resolve userId from subscription.");
+        return false;
+      }
 
       await upsertSubscriptionRecord({
         userId,
@@ -182,10 +205,11 @@ async function syncSuccessfulReturn(req: NextRequest, input: {
           Boolean(subscription.canceled_at),
       });
 
+      console.log("[creem-return] Subscription synced via subscription ID successfully");
       return true;
     }
   } catch (error) {
-    console.error("Creem return sync failed:", error);
+    console.error("[creem-return] syncSuccessfulReturn failed:", error);
   }
 
   return false;
@@ -198,6 +222,14 @@ export async function GET(req: NextRequest) {
   const checkoutId = req.nextUrl.searchParams.get("checkout_id");
   const subscriptionId = req.nextUrl.searchParams.get("subscription_id");
 
+  console.log("[creem-return] Query params:", {
+    type, planId, packId, checkoutId, subscriptionId,
+    order_id: req.nextUrl.searchParams.get("order_id"),
+    customer_id: req.nextUrl.searchParams.get("customer_id"),
+    product_id: req.nextUrl.searchParams.get("product_id"),
+    hasSignature: !!req.nextUrl.searchParams.get("signature"),
+  });
+
   const isValid = verifyCreemRedirectSignature({
     checkout_id: checkoutId,
     order_id: req.nextUrl.searchParams.get("order_id"),
@@ -208,6 +240,8 @@ export async function GET(req: NextRequest) {
     signature: req.nextUrl.searchParams.get("signature"),
   });
 
+  console.log("[creem-return] Signature valid:", isValid);
+
   const synced = await syncSuccessfulReturn(req, {
     type,
     planId,
@@ -216,7 +250,10 @@ export async function GET(req: NextRequest) {
     subscriptionId,
   });
 
+  console.log("[creem-return] Sync result:", synced);
+
   if (!isValid && !synced) {
+    console.warn("[creem-return] Both signature and sync failed, redirecting to canceled");
     return redirectToPricing({ canceled: "true" });
   }
 
